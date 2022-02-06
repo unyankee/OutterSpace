@@ -30,3 +30,21 @@
 *.exe
 *.out
 *.app
+
+# Visual Studio generated files
+*.ipch
+*.suo
+*.log
+*.tlog
+*.ilk
+*.vcxproj
+*.pdb
+*.user
+
+#precompiled shaders
+*.spv
+*.json
+
+#vs folder
+/build/.vs/
+/build/Vulkan_renderer
