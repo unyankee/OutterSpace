@@ -104,7 +104,9 @@ public:
     void createMeshPipeline(VkShaderModule vs, VkShaderModule fs);
     // 
     void RegisterDebugCallback();
-
+    // 
+    static VkImageMemoryBarrier ImageBarrier(VkImage Image, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout);
+    
     VkShaderModule loadShader(const char* shaderPath) const;
 
     VkCommandPool CreateCommandPool();
@@ -154,6 +156,10 @@ void EngineInstance::MainLoop()
 
         VK_CHECK(vkBeginCommandBuffer(CommandBuffer, &BeginInfo));
 
+        const VkImageMemoryBarrier RenderBeginBarrier = ImageBarrier(SwapchainImages[ImageIndex], 0,VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);        
+        vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, 0, 0, 0, 1,&RenderBeginBarrier);
+        
+        
         constexpr VkClearColorValue ClearColorValue = {27.0f / 255.0f, 3.0f / 255.0f, 3.0f / 255.0f, 1.0f};
         VkClearValue ClearValue = {ClearColorValue};
 
@@ -180,6 +186,8 @@ void EngineInstance::MainLoop()
 
         vkCmdEndRenderPass(CommandBuffer);
 
+        const VkImageMemoryBarrier RenderEndBarrier = ImageBarrier(SwapchainImages[ImageIndex], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,0,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, 0, 0, 0, 1,&RenderEndBarrier);
         //vkCmdClearColorImage(CommandBuffer, SwapchainImages[ImageIndex], VK_IMAGE_LAYOUT_GENERAL, &ClearColorValue, 1, &ImageSubresourceRamge);
 
         VK_CHECK(vkEndCommandBuffer(CommandBuffer))
@@ -643,6 +651,24 @@ void EngineInstance::RegisterDebugCallback()
    VK_CHECK(pfnCreateDebugReportCallbackEXT(Instance, &CreateInfo, 0, &DebugAllocatorCallback));
 
     DebugCallback = DebugAllocatorCallback;
+}
+
+VkImageMemoryBarrier EngineInstance::ImageBarrier(VkImage Image, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+    VkImageLayout oldLayout, VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier Result = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    Result.srcAccessMask = srcAccessMask;
+    Result.dstAccessMask = dstAccessMask;
+    Result.oldLayout = oldLayout;
+    Result.newLayout = newLayout;
+    Result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    Result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    Result.image = Image;
+    Result.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    Result.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+    Result.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+    return Result;
 }
 
 VkShaderModule EngineInstance::loadShader(const char* shaderPath) const
