@@ -188,6 +188,7 @@
     <ClInclude Include="..\extern\glfw\glfw-3.4\src\wl_platform.h" />
     <ClInclude Include="..\extern\glfw\glfw-3.4\src\x11_platform.h" />
     <ClInclude Include="..\extern\glfw\glfw-3.4\src\xkb_unicode.h" />
+    <ClInclude Include="..\extern\volk\volk.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\extern\glfw\glfw-3.4\src\cocoa_init.m" />
