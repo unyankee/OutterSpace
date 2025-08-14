@@ -3,12 +3,12 @@
   "WorkspaceRootPath": "F:\\ToyEngine\\ToyEngine\\Engine\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.frag.glsl||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|solutionrelative:Shaders\\mesh.frag.glsl||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.vert.glsl||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|solutionrelative:Shaders\\mesh.vert.glsl||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.frag.glsl||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|solutionrelative:Shaders\\mesh.frag.glsl||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|F:\\ToyEngine\\ToyEngine\\Engine\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -31,7 +31,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 2,
           "Children": [
             {
               "$type": "Bookmark",
@@ -39,26 +39,26 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "mesh.frag.glsl",
               "DocumentMoniker": "F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.frag.glsl",
               "RelativeDocumentMoniker": "Shaders\\mesh.frag.glsl",
               "ToolTip": "F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.frag.glsl",
               "RelativeToolTip": "Shaders\\mesh.frag.glsl",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAARAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2025-06-11T11:42:23.325Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "mesh.vert.glsl",
               "DocumentMoniker": "F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.vert.glsl",
               "RelativeDocumentMoniker": "Shaders\\mesh.vert.glsl",
               "ToolTip": "F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.vert.glsl",
               "RelativeToolTip": "Shaders\\mesh.vert.glsl",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAVAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2025-06-11T11:42:23.496Z",
               "EditorCaption": ""
@@ -108,8 +108,7 @@
               "RelativeToolTip": "main.cpp",
               "ViewState": "AgIAAKcAAAAAAAAAAAAAAMAAAAAgAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-05-11T11:13:40.857Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-11T11:13:40.857Z"
             }
           ]
         }

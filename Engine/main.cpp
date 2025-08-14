@@ -102,6 +102,8 @@ public:
     void createFramebuffer();
     //
     void createMeshPipeline(VkShaderModule vs, VkShaderModule fs);
+    //
+    uint32_t getGraphicsQueueFamily();
     // 
     void RegisterDebugCallback();
     // 
@@ -188,6 +190,7 @@ void EngineInstance::MainLoop()
 
         const VkImageMemoryBarrier RenderEndBarrier = ImageBarrier(SwapchainImages[ImageIndex], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,0,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, 0, 0, 0, 1,&RenderEndBarrier);
+
         //vkCmdClearColorImage(CommandBuffer, SwapchainImages[ImageIndex], VK_IMAGE_LAYOUT_GENERAL, &ClearColorValue, 1, &ImageSubresourceRamge);
 
         VK_CHECK(vkEndCommandBuffer(CommandBuffer))
@@ -217,6 +220,10 @@ void EngineInstance::MainLoop()
         // This is bad. here just for purely testing 
         VK_CHECK(vkDeviceWaitIdle(Device))
     }
+    
+    VK_CHECK(vkDeviceWaitIdle(Device))
+    // Expected releasing resources
+    
 }
 
 VkCommandPool EngineInstance::CreateCommandPool()
@@ -283,6 +290,7 @@ void EngineInstance::InitInstance()
     window = glfwCreateWindow(WindowWidth, WindowHeigh, "OutterSpace", 0, 0);
 
     SelectPhysicalDevice();
+    getGraphicsQueueFamily();
     CreateDevice();
     CreateSurface();
     GetSwapchainFormat();
@@ -352,7 +360,6 @@ void EngineInstance::CreateDevice()
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
 
 #endif
-        //VK_EXT_DEBUG_REPORT_EXTENSION_NAME
     };
 
     DeviceCreateInfo.ppEnabledExtensionNames = Extensions;
@@ -618,6 +625,25 @@ void EngineInstance::createMeshPipeline(VkShaderModule vs, VkShaderModule fs)
     VK_CHECK(vkCreateGraphicsPipelines(Device, pipelineCache, 1, &PipelineCreateIndo ,nullptr, &MeshPipeline))
 }
 
+uint32_t EngineInstance::getGraphicsQueueFamily()
+{
+    VkQueueFamilyProperties queues[64];
+    uint32_t queueCount = sizeof(queues) / sizeof(queues[0]);
+    vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &queueCount, queues);
+
+    for (uint32_t i = 0; i < queueCount; ++i)
+    {
+        if (queues[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            FamilyIndex = i;
+            return 1;
+        }
+    }
+    
+    assert(!"No queue families support graphics");
+    return -1;
+}
+
 VkBool32 DebugReporterVulkan(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object,
                              size_t location,
                              int32_t messageCode,
@@ -705,7 +731,7 @@ int main()
     // of external libraries as possible
     EngineInstance Engine;
     Engine.InitInstance();
-
+    
     Engine.MainLoop();
 
     glfwDestroyWindow(Engine.window);

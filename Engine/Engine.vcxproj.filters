@@ -188,6 +188,9 @@
     <ClInclude Include="..\extern\glfw\glfw-3.4\src\xkb_unicode.h">
       <Filter>glfw</Filter>
     </ClInclude>
+    <ClInclude Include="..\extern\volk\volk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\extern\glfw\glfw-3.4\src\cocoa_init.m">
@@ -214,8 +217,10 @@
     <None Include="Shaders\mesh.frag.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="Shaders\mesh.vert.glsl">
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Shaders\mesh.vert.glsl">
       <Filter>shaders</Filter>
-    </None>
+    </CustomBuild>
   </ItemGroup>
 </Project>

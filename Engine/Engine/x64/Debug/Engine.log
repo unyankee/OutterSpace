@@ -1,2 +1,12 @@
-﻿  main.cpp
-  Engine.vcxproj -> F:\ToyEngine\ToyEngine\Engine\x64\Debug\Engine.exe
+﻿  Performing Custom Build Tools
+  F:\ToyEngine\ToyEngine\Engine\Shaders\mesh.vert.glsl
+CUSTOMBUILD : error : F:\ToyEngine\ToyEngine\Engine\Shaders\mesh.vert.glsl:7: 'd' : undeclared identifier
+CUSTOMBUILD : error : F:\ToyEngine\ToyEngine\Engine\Shaders\mesh.vert.glsl:5: 'constructor' :  cannot convert parameter 4 from ' temp float' to ' temp highp 3-component vector of float'
+CUSTOMBUILD : error : F:\ToyEngine\ToyEngine\Engine\Shaders\mesh.vert.glsl:8: '' : compilation terminated
+CUSTOMBUILD : error : 3 compilation errors.  No code generated.
+  
+  
+CUSTOMBUILD : error : Linking vertex stage: Missing entry point: Each stage requires one entry point
+  
+  SPIR-V is not generated for failed compile or link
+C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppCommon.targets(254,5): error MSB8066: Custom build for 'Shaders\mesh.vert.glsl' exited with code 2.
