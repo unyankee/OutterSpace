@@ -10,6 +10,18 @@
       "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|C:\\VULKANSDK\\1.4.313.0\\INCLUDE\\VULKAN\\VULKAN_CORE.H||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|C:\\VULKANSDK\\1.4.313.0\\INCLUDE\\VOLK\\VOLK.H||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|C:\\VULKANSDK\\1.4.313.0\\INCLUDE\\VULKAN\\VULKAN_WIN32.H||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\OutterSpaceLocal\\extern\\glfw\\glfw-3.4\\src\\internal.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|F:\\ToyEngine\\ToyEngine\\extern\\volk\\volk.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.vert.glsl||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|solutionrelative:Shaders\\mesh.vert.glsl||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
@@ -18,10 +30,10 @@
       "RelativeMoniker": "D:0:0:{E7FD48B3-31A2-4F32-AF1A-491270A92C85}|Engine.vcxproj|solutionrelative:Shaders\\mesh.frag.glsl||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\OutterSpaceLocal\\extern\\glfw\\glfw-3.4\\src\\internal.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\VulkanSDK\\1.4.313.0\\Include\\vulkan\\vulkan.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\VulkanSDK\\1.4.313.0\\Include\\vulkan\\vulkan.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\ToyEngine\\ToyEngine\\extern\\glfw\\glfw-3.4\\include\\GLFW\\glfw3.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -31,7 +43,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 6,
+          "SelectedChildIndex": 10,
           "Children": [
             {
               "$type": "Bookmark",
@@ -40,6 +52,54 @@
             {
               "$type": "Document",
               "DocumentIndex": 3,
+              "Title": "vulkan_win32.h",
+              "DocumentMoniker": "C:\\VulkanSDK\\1.4.313.0\\Include\\vulkan\\vulkan_win32.h",
+              "ToolTip": "C:\\VulkanSDK\\1.4.313.0\\Include\\vulkan\\vulkan_win32.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-08-14T19:00:52.694Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "volk.h",
+              "DocumentMoniker": "F:\\ToyEngine\\ToyEngine\\extern\\volk\\volk.h",
+              "RelativeDocumentMoniker": "..\\extern\\volk\\volk.h",
+              "ToolTip": "F:\\ToyEngine\\ToyEngine\\extern\\volk\\volk.h",
+              "RelativeToolTip": "..\\extern\\volk\\volk.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-08-14T14:13:03.884Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "volk.h",
+              "DocumentMoniker": "C:\\VulkanSDK\\1.4.313.0\\Include\\Volk\\volk.h",
+              "ToolTip": "C:\\VulkanSDK\\1.4.313.0\\Include\\Volk\\volk.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAEAAAAEAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-08-14T14:06:27.852Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "glfw3.h",
+              "DocumentMoniker": "F:\\ToyEngine\\ToyEngine\\extern\\glfw\\glfw-3.4\\include\\GLFW\\glfw3.h",
+              "RelativeDocumentMoniker": "..\\extern\\glfw\\glfw-3.4\\include\\GLFW\\glfw3.h",
+              "ToolTip": "F:\\ToyEngine\\ToyEngine\\extern\\glfw\\glfw-3.4\\include\\GLFW\\glfw3.h",
+              "RelativeToolTip": "..\\extern\\glfw\\glfw-3.4\\include\\GLFW\\glfw3.h",
+              "ViewState": "AgIAAF4AAAAAAAAAAAAcwHoAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-08-14T13:44:47.141Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
               "Title": "mesh.frag.glsl",
               "DocumentMoniker": "F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.frag.glsl",
               "RelativeDocumentMoniker": "Shaders\\mesh.frag.glsl",
@@ -47,12 +107,11 @@
               "RelativeToolTip": "Shaders\\mesh.frag.glsl",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-06-11T11:42:23.325Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-11T11:42:23.325Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 6,
               "Title": "mesh.vert.glsl",
               "DocumentMoniker": "F:\\ToyEngine\\ToyEngine\\Engine\\Shaders\\mesh.vert.glsl",
               "RelativeDocumentMoniker": "Shaders\\mesh.vert.glsl",
@@ -60,8 +119,7 @@
               "RelativeToolTip": "Shaders\\mesh.vert.glsl",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-06-11T11:42:23.496Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-11T11:42:23.496Z"
             },
             {
               "$type": "Document",
@@ -69,7 +127,7 @@
               "Title": "vulkan_core.h",
               "DocumentMoniker": "C:\\VulkanSDK\\1.4.313.0\\Include\\vulkan\\vulkan_core.h",
               "ToolTip": "C:\\VulkanSDK\\1.4.313.0\\Include\\vulkan\\vulkan_core.h",
-              "ViewState": "AgIAAIoyAAAAAAAAAAAuwKgyAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAWAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2025-05-11T11:47:10.656Z",
               "EditorCaption": ""
@@ -82,14 +140,14 @@
               "RelativeDocumentMoniker": "..\\..\\..\\OutterSpaceLocal\\extern\\glfw\\glfw-3.4\\src\\internal.h",
               "ToolTip": "F:\\OutterSpaceLocal\\extern\\glfw\\glfw-3.4\\src\\internal.h",
               "RelativeToolTip": "..\\..\\..\\OutterSpaceLocal\\extern\\glfw\\glfw-3.4\\src\\internal.h",
-              "ViewState": "AgIAAB8BAAAAAAAAAAAmwC0BAAAdAAAAAAAAAA==",
+              "ViewState": "AgIAAJ8DAAAAAAAAAAAMwLQDAAAUAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2025-05-11T11:47:02.621Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 8,
               "Title": "vulkan.h",
               "DocumentMoniker": "C:\\VulkanSDK\\1.4.313.0\\Include\\vulkan\\vulkan.h",
               "ToolTip": "C:\\VulkanSDK\\1.4.313.0\\Include\\vulkan\\vulkan.h",
@@ -106,7 +164,7 @@
               "RelativeDocumentMoniker": "main.cpp",
               "ToolTip": "F:\\ToyEngine\\ToyEngine\\Engine\\main.cpp",
               "RelativeToolTip": "main.cpp",
-              "ViewState": "AgIAAI4AAAAAAAAAAAAiwKQAAAACAAAAAAAAAA==",
+              "ViewState": "AgIAAB0BAAAAAAAAAAAowEQBAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-05-11T11:13:40.857Z",
               "EditorCaption": ""

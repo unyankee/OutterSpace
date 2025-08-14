@@ -5,10 +5,6 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
@@ -19,21 +15,21 @@
     <Filter Include="shaders">
       <UniqueIdentifier>{5e7d1038-9471-42e4-8c9e-b0d897ace335}</UniqueIdentifier>
     </Filter>
+    <Filter Include="volk">
+      <UniqueIdentifier>{e4e0cff1-4f09-4f6f-b7f3-44d0e164ccfa}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\extern\volk\volk.c">
+      <Filter>volk</Filter>
+    </ClCompile>
     <ClCompile Include="..\extern\glfw\glfw-3.4\src\context.c">
       <Filter>glfw</Filter>
     </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\init.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\input.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\monitor.c">
+    <ClCompile Include="..\extern\glfw\glfw-3.4\src\egl_context.c">
       <Filter>glfw</Filter>
     </ClCompile>
     <ClCompile Include="..\extern\glfw\glfw-3.4\src\vulkan.c">
@@ -63,6 +59,21 @@
     <ClCompile Include="..\extern\glfw\glfw-3.4\src\window.c">
       <Filter>glfw</Filter>
     </ClCompile>
+    <ClCompile Include="..\extern\glfw\glfw-3.4\src\monitor.c">
+      <Filter>glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\glfw\glfw-3.4\src\input.c">
+      <Filter>glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\glfw\glfw-3.4\src\init.c">
+      <Filter>glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\glfw\glfw-3.4\src\osmesa_context.c">
+      <Filter>glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\glfw\glfw-3.4\src\wgl_context.c">
+      <Filter>glfw</Filter>
+    </ClCompile>
     <ClCompile Include="..\extern\glfw\glfw-3.4\src\platform.c">
       <Filter>glfw</Filter>
     </ClCompile>
@@ -78,62 +89,8 @@
     <ClCompile Include="..\extern\glfw\glfw-3.4\src\null_window.c">
       <Filter>glfw</Filter>
     </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\egl_context.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\osmesa_context.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\wgl_context.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\cocoa_time.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\glx_context.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\linux_joystick.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\posix_module.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\posix_poll.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\posix_thread.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\posix_time.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\wl_init.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\wl_monitor.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\wl_window.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\x11_init.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\x11_monitor.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\x11_window.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\extern\glfw\glfw-3.4\src\xkb_unicode.c">
-      <Filter>glfw</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\internal.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
     <ClInclude Include="..\extern\glfw\glfw-3.4\src\win32_joystick.h">
       <Filter>glfw</Filter>
     </ClInclude>
@@ -146,81 +103,23 @@
     <ClInclude Include="..\extern\glfw\glfw-3.4\src\win32_time.h">
       <Filter>glfw</Filter>
     </ClInclude>
+    <ClInclude Include="..\extern\glfw\glfw-3.4\src\platform.h">
+      <Filter>glfw</Filter>
+    </ClInclude>
     <ClInclude Include="..\extern\glfw\glfw-3.4\src\null_joystick.h">
       <Filter>glfw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\volk\volk.h">
+      <Filter>volk</Filter>
     </ClInclude>
     <ClInclude Include="..\extern\glfw\glfw-3.4\src\null_platform.h">
       <Filter>glfw</Filter>
     </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\cocoa_joystick.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\cocoa_platform.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\cocoa_time.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\linux_joystick.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\mappings.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\platform.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\posix_poll.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\posix_thread.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\posix_time.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\wl_platform.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\x11_platform.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\glfw\glfw-3.4\src\xkb_unicode.h">
-      <Filter>glfw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\extern\volk\volk.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\extern\glfw\glfw-3.4\src\cocoa_init.m">
-      <Filter>glfw</Filter>
-    </None>
-    <None Include="..\extern\glfw\glfw-3.4\src\cocoa_joystick.m">
-      <Filter>glfw</Filter>
-    </None>
-    <None Include="..\extern\glfw\glfw-3.4\src\cocoa_monitor.m">
-      <Filter>glfw</Filter>
-    </None>
-    <None Include="..\extern\glfw\glfw-3.4\src\cocoa_window.m">
-      <Filter>glfw</Filter>
-    </None>
-    <None Include="..\extern\glfw\glfw-3.4\src\glfw.rc.in">
-      <Filter>glfw</Filter>
-    </None>
-    <None Include="..\extern\glfw\glfw-3.4\src\mappings.h.in">
-      <Filter>glfw</Filter>
-    </None>
-    <None Include="..\extern\glfw\glfw-3.4\src\nsgl_context.m">
-      <Filter>glfw</Filter>
-    </None>
-    <None Include="Shaders\mesh.frag.glsl">
-      <Filter>shaders</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\mesh.vert.glsl">
       <Filter>shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\mesh.frag.glsl" />
   </ItemGroup>
 </Project>

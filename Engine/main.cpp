@@ -2,14 +2,14 @@
 #include <cstdio>
 #include <vector>
 #include <algorithm>
+
+//#define VK_NO_PROTOTYPES
+//#include <vulkan/vulkan.h>
+#include <Volk/volk.h>
+
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-//#define VK_NO_PROTOTYPES
-#include <vulkan/vulkan.h>
-
-//#define VOLK_IMPLEMENTATION
-//#include <Volk/volk.h>
 
 
 #define VK_CHECK(VK_FUNCTION) \
@@ -272,7 +272,7 @@ void EngineInstance::InitInstance()
 
 	glfwInitHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-	//volkInitialize();
+	volkInitialize();
 
 	VkApplicationInfo ApplicationInfo{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	ApplicationInfo.apiVersion = VK_API_VERSION_1_4;
@@ -302,11 +302,11 @@ void EngineInstance::InitInstance()
 
 #endif
 
-	VK_CHECK(vkCreateInstance(&InstanceInfo, nullptr, &Instance))
-
-		// volkLoadInstance(Instance);
-		// volkLoadDevice(Device);
-		RegisterDebugCallback();
+	VK_CHECK(vkCreateInstance(&InstanceInfo, nullptr, &Instance));
+	//
+	volkLoadInstance(Instance);
+	
+	RegisterDebugCallback();
 
 	uint32_t DeviceCount = 0;
 	assert(PhysicalDevices.empty());
@@ -322,6 +322,9 @@ void EngineInstance::InitInstance()
 	SelectPhysicalDevice();
 	getGraphicsQueueFamily();
 	CreateDevice();
+	//
+	volkLoadDevice(Device);
+
 	CreateSurface();
 	GetSwapchainFormat();
 	//GetOrCreateSwapchainImages();
