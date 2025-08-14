@@ -21,6 +21,9 @@
 #define ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
 
 
+const uint32_t StartupWidthResolution = 1920;
+const uint32_t StartupHeightResolution = 1080;
+
 struct Swapchain
 {
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -76,8 +79,8 @@ public:
 	//
 	//std::vector<VkImageView> SwapchainImageViews;
 	//
-	uint32_t Width = 1920;
-	uint32_t Height = 1080;
+	//uint32_t Width = 1920;
+	//uint32_t Height = 1080;
 	//
 	VkPipeline MeshPipeline;
 	VkPipelineLayout MeshPipelineLayout;
@@ -267,6 +270,8 @@ void EngineInstance::InitInstance()
 	int InitResult = glfwInit();
 	assert(InitResult);
 
+	glfwInitHint(GLFW_CLIENT_API, GLFW_NO_API);
+
 	//volkInitialize();
 
 	VkApplicationInfo ApplicationInfo{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -310,8 +315,8 @@ void EngineInstance::InitInstance()
 	VK_CHECK(vkEnumeratePhysicalDevices(Instance, &DeviceCount, PhysicalDevices.data()));
 	// with this data we can start selecting which device is the best one for us
 
-	const uint32_t WindowWidth = Width;
-	const uint32_t WindowHeigh = Height;
+	const uint32_t WindowWidth = StartupWidthResolution;
+	const uint32_t WindowHeigh = StartupHeightResolution;
 	window = glfwCreateWindow(WindowWidth, WindowHeigh, "OutterSpace", 0, 0);
 
 	SelectPhysicalDevice();
@@ -470,6 +475,8 @@ void EngineInstance::CreateSwapchain()
 
 	VK_CHECK(vkCreateSwapchainKHR(Device, &SwapchainCreateInfo, nullptr, &LocalSwapchain));
 
+	VK_CHECK(vkDeviceWaitIdle(Device));
+
 	std::vector<VkImage> images;
 	std::vector<VkImageView> imageviews;
 	std::vector<VkFramebuffer> framebuffers;
@@ -478,7 +485,6 @@ void EngineInstance::CreateSwapchain()
 	vkGetSwapchainImagesKHR(Device, LocalSwapchain, &swapchainImagesCount, images.data());
 	images.resize(swapchainImagesCount);
 	vkGetSwapchainImagesKHR(Device, LocalSwapchain, &swapchainImagesCount, images.data());
-
 
 	imageviews.resize(swapchainImagesCount);
 	for (uint32_t i = 0; i < swapchainImagesCount; ++i)
@@ -504,20 +510,22 @@ void EngineInstance::CreateSwapchain()
 		FramebufferCreateInfo.attachmentCount = 1;
 		FramebufferCreateInfo.pAttachments = &imageviews[i];
 		FramebufferCreateInfo.width = Width;
-		FramebufferCreateInfo.height = Height;
+		FramebufferCreateInfo.height = Heigh;
 		FramebufferCreateInfo.layers = 1;
 
 		vkCreateFramebuffer(Device, &FramebufferCreateInfo, nullptr, &framebuffers[i]);
 	}
 
+	
 
 	swapchain.swapchain = LocalSwapchain;
 	//
 	swapchain.framebuffers = framebuffers;
 	swapchain.imageviews = imageviews;
 	swapchain.images = images;
+
 	swapchain.width = Width;
-	swapchain.height = Height;
+	swapchain.height = Heigh;
 
 	VK_CHECK(vkDeviceWaitIdle(Device));
 }
