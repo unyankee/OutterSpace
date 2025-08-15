@@ -3,12 +3,12 @@
 #include <vector>
 #include <algorithm>
 
-//#define VK_NO_PROTOTYPES
-//#include <vulkan/vulkan.h>
 #include <Volk/volk.h>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+
+#include <extern/meshoptimizer/extern/fast_obj.h>
 
 
 
@@ -23,6 +23,102 @@
 
 const uint32_t StartupWidthResolution = 1920;
 const uint32_t StartupHeightResolution = 1080;
+
+
+// Testing vertex format
+// needs to be reduced in size as well
+struct Vertex
+{
+	float vx, vy, vz;
+	float nx, ny, nz;
+	float tu, tv;
+};
+
+struct Mesh
+{
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
+};
+
+bool loadMesh(Mesh& outMesh, const char* path)
+{
+	if (!path)
+	{
+		return false;
+	}
+
+	fastObjMesh* mesh = fast_obj_read(path);
+	if (!mesh)
+	{
+		return false;
+	}
+
+	outMesh.vertices.resize(mesh->index_count);
+	outMesh.indices.resize(mesh->index_count);
+
+	for (unsigned int ii = 0; ii < mesh->group_count; ii++)
+	{
+		const fastObjGroup& grp = mesh->groups[ii];
+
+		int idx = 0;
+		for (unsigned int jj = 0; jj < grp.face_count; jj++)
+		{
+			unsigned int fv = mesh->face_vertices[grp.face_offset + jj];
+
+			for (unsigned int kk = 0; kk < fv; kk++)
+			{
+				fastObjIndex mi = mesh->indices[grp.index_offset + idx];
+
+				Vertex& vertexData = outMesh.vertices[idx];
+
+				if (mi.p)
+				{
+					vertexData.vx = mesh->positions[3 * mi.p + 0];
+					vertexData.vy = mesh->positions[3 * mi.p + 1];
+					vertexData.vz = mesh->positions[3 * mi.p + 2];
+				}
+
+				if (mi.t)
+				{
+					vertexData.tu = mesh->texcoords[2 * mi.t + 0];
+					vertexData.tv = mesh->texcoords[2 * mi.t + 1];
+				}
+
+				if (mi.n)
+				{
+					vertexData.nx = mesh->normals[3 * mi.n + 0];
+					vertexData.ny = mesh->normals[3 * mi.n + 1];
+					vertexData.nz = mesh->normals[3 * mi.n + 2];
+				}
+				idx++;
+			}
+		}
+	}
+
+	// TODO:
+	// Need to use meshoptimizer in here 
+	// instead of creating this massive index buffer which is not good.
+	// (need to reduce the amount of vertex data and create a proper index buffer)
+	for (uint32_t i = 0; i < mesh->index_count; ++i)
+	{
+		outMesh.indices[i] = i;
+	}
+
+	fast_obj_destroy(mesh);
+
+	return true;
+}
+
+
+
+struct Buffer
+{
+	VkBuffer buffer;
+	int memory;
+	void* data;
+	uint32_t size;
+};
+
 
 struct Swapchain
 {
@@ -87,6 +183,8 @@ public:
 
 	Swapchain swapchain;
 
+	VkPhysicalDeviceMemoryProperties PhysicalMemoryProperties;
+
 	VkDebugReportCallbackEXT DebugCallback;
 	// Functions //
 	// This is not the best naming
@@ -94,6 +192,11 @@ public:
 	// this function is actually doing.
 	// Should consider move it / rename it once what 
 	// it does changes over time
+	//
+
+
+	//
+
 	//
 	void MainLoop();
 	//
@@ -111,6 +214,8 @@ public:
 	void CreateSwapchain();
 	//
 	void createRenderpass();
+	//
+	void createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags);
 	//
 	//void GetOrCreateSwapchainImages();
 	//
@@ -158,6 +263,13 @@ void EngineInstance::MainLoop()
 	VkShaderModule MeshFs = loadShader("Shaders/mesh.frag.spv");
 	createMeshPipeline(MeshVs, MeshFs);
 
+	Mesh testMesh;
+	loadMesh(testMesh, "../assets/models/xyzrgb_dragon.obj");
+	// Create tmp Meshes in here?
+	Buffer vb, ib;
+	createBuffer(vb, testMesh.vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	createBuffer(ib, testMesh.indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
@@ -167,7 +279,7 @@ void EngineInstance::MainLoop()
 			int32_t Width = 0;
 			int32_t Heigh = 0;
 			glfwGetWindowSize(window, &Width, &Heigh);
-			if (swapchain.width != Width || swapchain.height != Heigh) 
+			if (swapchain.width != Width || swapchain.height != Heigh)
 			{
 				CreateSwapchain();
 			}
@@ -196,7 +308,7 @@ void EngineInstance::MainLoop()
 		VkRenderPassBeginInfo RenderpassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
 		RenderpassBeginInfo.renderPass = RenderPass;
 		RenderpassBeginInfo.framebuffer = swapchain.framebuffers[ImageIndex];
-		RenderpassBeginInfo.renderArea.extent = { swapchain.width, swapchain.height};
+		RenderpassBeginInfo.renderArea.extent = { swapchain.width, swapchain.height };
 		RenderpassBeginInfo.renderArea.offset = { 0, 0 };
 		RenderpassBeginInfo.clearValueCount = 1;
 		RenderpassBeginInfo.pClearValues = &ClearValue;
@@ -302,10 +414,11 @@ void EngineInstance::InitInstance()
 
 #endif
 
+
 	VK_CHECK(vkCreateInstance(&InstanceInfo, nullptr, &Instance));
 	//
 	volkLoadInstance(Instance);
-	
+
 	RegisterDebugCallback();
 
 	uint32_t DeviceCount = 0;
@@ -368,6 +481,9 @@ void EngineInstance::SelectPhysicalDevice()
 	VkPhysicalDeviceProperties Properties;
 	vkGetPhysicalDeviceProperties(PhysicalDevices[DeviceCandidate], &Properties);
 	printf("Selected Physical Device Name: %s\n", Properties.deviceName);
+	
+	// TODO: Maybe add here all the relevant calls to physical device on init time? 
+	vkGetPhysicalDeviceMemoryProperties(PhysicalDevice, &PhysicalMemoryProperties);
 }
 
 void EngineInstance::CreateDevice()
@@ -519,7 +635,7 @@ void EngineInstance::CreateSwapchain()
 		vkCreateFramebuffer(Device, &FramebufferCreateInfo, nullptr, &framebuffers[i]);
 	}
 
-	
+
 
 	swapchain.swapchain = LocalSwapchain;
 	//
@@ -562,6 +678,21 @@ void EngineInstance::createRenderpass()
 	RenderPassCreateInfo.pSubpasses = &Subpass;
 
 	VK_CHECK(vkCreateRenderPass(Device, &RenderPassCreateInfo, nullptr, &RenderPass))
+}
+
+void EngineInstance::createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags)
+{
+	VkBufferCreateInfo Createinfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	Createinfo.size = size;
+	Createinfo.usage = usageFlags;
+
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VK_CHECK(vkCreateBuffer(Device, &Createinfo, nullptr, &buffer));
+	// Memory reqs
+	VkMemoryRequirements memoryReqs;
+	vkGetBufferMemoryRequirements(Device, buffer, &memoryReqs);
+
+	
 }
 
 void EngineInstance::createMeshPipeline(VkShaderModule vs, VkShaderModule fs)
@@ -715,11 +846,9 @@ void EngineInstance::RegisterDebugCallback()
 	VkDebugReportCallbackCreateInfoEXT CreateInfo = { VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT };
 	CreateInfo.pfnCallback = &DebugReporterVulkan;
 	CreateInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
-	//
 
-	PFN_vkCreateDebugReportCallbackEXT pfnCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(Instance, "vkCreateDebugReportCallbackEXT");
 	VkDebugReportCallbackEXT DebugAllocatorCallback = { VK_NULL_HANDLE };
-	VK_CHECK(pfnCreateDebugReportCallbackEXT(Instance, &CreateInfo, 0, &DebugAllocatorCallback));
+	VK_CHECK(vkCreateDebugReportCallbackEXT(Instance, &CreateInfo, 0, &DebugAllocatorCallback));
 
 	DebugCallback = DebugAllocatorCallback;
 }
