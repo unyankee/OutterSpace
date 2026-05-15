@@ -114,7 +114,8 @@ bool loadMesh(Mesh& outMesh, const char* path)
 struct Buffer
 {
 	VkBuffer buffer;
-	int memory;
+	VkDeviceMemory memory;
+	VkDeviceAddress gpuAddress;
 	void* data;
 	uint32_t size;
 };
@@ -216,6 +217,9 @@ public:
 	void createRenderpass();
 	//
 	void createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags);
+	void DestroyBuffer(Buffer& Buffer);
+	//
+	uint32_t selectMemoryType(const uint32_t memoryTypeBits, VkMemoryPropertyFlags flags);
 	//
 	//void GetOrCreateSwapchainImages();
 	//
@@ -261,14 +265,25 @@ void EngineInstance::MainLoop()
 
 	VkShaderModule MeshVs = loadShader("Shaders/mesh.vert.spv");
 	VkShaderModule MeshFs = loadShader("Shaders/mesh.frag.spv");
+	
 	createMeshPipeline(MeshVs, MeshFs);
 
 	Mesh testMesh;
-	loadMesh(testMesh, "../assets/models/xyzrgb_dragon.obj");
+	//if (!loadMesh(testMesh, "../assets/models/xyzrgb_dragon.obj"))
+	if (!loadMesh(testMesh, "../assets/models/kitten.obj"))
+	{
+		printf("Failed to load mesh, using dummy data\n");
+		testMesh.vertices.push_back({ 0, 0, 0, 0, 0, 0, 0, 0 });
+		testMesh.indices.push_back(0);
+	}
+
 	// Create tmp Meshes in here?
 	Buffer vb, ib;
-	createBuffer(vb, testMesh.vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	createBuffer(ib, testMesh.indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	createBuffer(vb, static_cast<uint32_t>(testMesh.vertices.size() * sizeof(Vertex)), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+	createBuffer(ib, static_cast<uint32_t>(testMesh.indices.size() * sizeof(uint32_t)), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+
+	memcpy(vb.data, testMesh.vertices.data(), testMesh.vertices.size() * sizeof(Vertex));
+	memcpy(ib.data, testMesh.indices.data(), testMesh.indices.size() * sizeof(uint32_t));
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -323,8 +338,11 @@ void EngineInstance::MainLoop()
 		vkCmdSetScissor(CommandBuffer, 0, 1, &Scissor);
 
 		vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, MeshPipeline);
-		vkCmdDraw(CommandBuffer, 3, 1, 0, 0);
 
+		vkCmdPushConstants(CommandBuffer,MeshPipelineLayout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof(VkDeviceAddress),&vb.gpuAddress);
+
+		vkCmdBindIndexBuffer(CommandBuffer, ib.buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(CommandBuffer, static_cast<uint32_t>(testMesh.indices.size()), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(CommandBuffer);
 
@@ -514,9 +532,17 @@ void EngineInstance::CreateDevice()
 	DeviceCreateInfo.ppEnabledExtensionNames = Extensions;
 	DeviceCreateInfo.enabledExtensionCount = ARRAY_SIZE(Extensions);
 
+	// we need to enable this in order to get bindless support (which I plan to use as default) 
+	VkPhysicalDeviceBufferDeviceAddressFeatures BDAFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
+	BDAFeatures.bufferDeviceAddress = VK_TRUE; 
+
+
+	
 	//DeviceCreateInfo.enabledExtensionCount;
 	//DeviceCreateInfo.ppEnabledExtensionNames;
 	//DeviceCreateInfo.pEnabledFeatures;
+	
+	DeviceCreateInfo.pNext = &BDAFeatures;
 
 	VK_CHECK(vkCreateDevice(PhysicalDevice, &DeviceCreateInfo, nullptr, &Device));
 }
@@ -680,6 +706,15 @@ void EngineInstance::createRenderpass()
 	VK_CHECK(vkCreateRenderPass(Device, &RenderPassCreateInfo, nullptr, &RenderPass))
 }
 
+void EngineInstance::DestroyBuffer(Buffer& Buffer)
+{
+	if (Buffer.data)
+	{
+		vkFreeMemory(Device, Buffer.memory, nullptr);
+		vkDestroyBuffer(Device, Buffer.buffer, nullptr);
+	}
+}
+
 void EngineInstance::createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags)
 {
 	VkBufferCreateInfo Createinfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -692,17 +727,77 @@ void EngineInstance::createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsag
 	VkMemoryRequirements memoryReqs;
 	vkGetBufferMemoryRequirements(Device, buffer, &memoryReqs);
 
+	uint32_t memoryTypeIndex = selectMemoryType(memoryReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	VkMemoryAllocateInfo AllocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	AllocateInfo.memoryTypeIndex = memoryTypeIndex;
+	AllocateInfo.allocationSize = memoryReqs.size;
+
+	VkMemoryAllocateFlagsInfo allocFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO };
+	allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
 	
+	// If the usage includes BDA, store the address in the outBuffer struct
+	if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+	{
+		// Bindless support
+		AllocateInfo.pNext = &allocFlagsInfo;
+	}
+
+	VkDeviceMemory memory = VK_NULL_HANDLE;
+	VK_CHECK(vkAllocateMemory(Device, &AllocateInfo, nullptr, &memory));
+
+	VK_CHECK(vkBindBufferMemory(Device, buffer, memory, 0));
+	
+	void* Data;
+	VK_CHECK(vkMapMemory(Device, memory, 0, VK_WHOLE_SIZE, 0, &Data));
+
+	outBuffer.buffer = buffer;	
+	outBuffer.data = Data;	
+	outBuffer.memory = memory;	
+	outBuffer.size = size;	
+	outBuffer.gpuAddress = 0;
+
+	if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+	{
+		VkBufferDeviceAddressInfo addressInfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+		addressInfo.buffer = buffer;
+		outBuffer.gpuAddress = vkGetBufferDeviceAddress(Device, &addressInfo);
+	}
+}
+
+uint32_t EngineInstance::selectMemoryType(const uint32_t memoryTypeBits, VkMemoryPropertyFlags flags)
+{
+	for (uint32_t i = 0; i < PhysicalMemoryProperties.memoryTypeCount; ++i) 
+	{
+		if ((memoryTypeBits & (1 << i)) != 0 && (PhysicalMemoryProperties.memoryTypes[i].propertyFlags & flags) == flags) 
+		{
+			return  i;
+		}
+	}
+	
+	assert(!"");
+
+	return -1;
 }
 
 void EngineInstance::createMeshPipeline(VkShaderModule vs, VkShaderModule fs)
 {
+	// Need to specify that the shader will receive a pointer to the vertex buffer via push constant
+	// This needs to be expanded when more buffers are needed (eg: textures)
+	VkPushConstantRange PushConstantRange{};
+	PushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; 
+	PushConstantRange.offset = 0;
+	PushConstantRange.size = sizeof(VkDeviceAddress);
+	
 	VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	PipelineLayoutCreateInfo.flags;
-	PipelineLayoutCreateInfo.setLayoutCount;
-	PipelineLayoutCreateInfo.pSetLayouts;
-	PipelineLayoutCreateInfo.pushConstantRangeCount;
-	PipelineLayoutCreateInfo.pPushConstantRanges;
+
+	// isn't it lovely to avoid this? 
+	PipelineLayoutCreateInfo.setLayoutCount = 0;
+	PipelineLayoutCreateInfo.pSetLayouts = nullptr;
+	
+	PipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+	PipelineLayoutCreateInfo.pPushConstantRanges = &PushConstantRange;
 
 	VK_CHECK(vkCreatePipelineLayout(Device, &PipelineLayoutCreateInfo, nullptr, &MeshPipelineLayout));
 

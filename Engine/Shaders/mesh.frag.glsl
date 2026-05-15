@@ -1,8 +1,9 @@
 #version 450
 
+layout (location = 0) in vec4 IntColor;
 layout (location = 0) out vec4 OutColor;
 
 void main()
 {
-	OutColor = vec4(1,0,0,1);
+	OutColor = IntColor;
 }

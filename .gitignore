@@ -1,7 +1,50 @@
-/Engine/Engine/x64/Release
+# Visual Studio
+.vs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+
+# Build artifacts
+*.pdb
+*.ilk
+*.exp
+*.map
+*.tlog
+*.lastbuildstate
+*.log
+*.idb
 *.ipdb
-*.ipdb
-/Engine/.vs
-/Engine/.vs
-/Engine/Engine/x64/Debug
-/Engine/Engine/x64/Debug
+*.iobj
+*.sdf
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.opensdf
+*.VC.db
+*.VC.opendb
+
+# Avoid ignoring 3D models while ignoring C++ objects
+# We ignore .obj files EXCEPT those in assets/
+*.obj
+!assets/**/*.obj
+
+# Executables and Libraries
+*.exe
+*.dll
+*.lib
+
+# JetBrains (IDE)
+.idea/
+cmake-build-*/
+
+# Compiled Shaders (generated)
+*.spv
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
