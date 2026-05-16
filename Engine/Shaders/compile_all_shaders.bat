@@ -1,57 +1,17 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Path to your compiler
-set "COMPILER=glslangValidator.exe"
-:: Track failed files in a list
-set "FAILED_LIST="
+:: Path to your compiler - default to PATH if not specified
+if not defined COMPILER set "COMPILER=glslangValidator.exe"
 
-:menu
-echo.
-echo ==========================================
-echo    SHADER CROSS-FOLDER COMPILATOR
-echo ==========================================
-echo  1. Run/Re-run all shaders
-echo  2. Re-run only failed shaders
-echo  3. Clear console window
-echo  4. Close
-echo ==========================================
-set /p user_choice="Select an option (1-4): "
-
-if "%user_choice%"=="1" goto :compile_all
-if "%user_choice%"=="2" goto :compile_failed
-if "%user_choice%"=="3" (
-    cls
-    goto :menu
-)
-if "%user_choice%"=="4" exit
-goto :menu
-
-:compile_all
 echo Starting full scan...
-set "FAILED_LIST="
 :: Scans for any .glsl file recursively
 for /r %%f in (*.glsl) do (
     call :process_file "%%f"
 )
 echo.
 echo Full scan finished.
-goto :menu
-
-:compile_failed
-if "!FAILED_LIST!"=="" (
-    echo No failed shaders to re-run.
-    goto :menu
-)
-echo Re-running failed shaders...
-set "CURRENT_FAILED=!FAILED_LIST!"
-set "FAILED_LIST="
-for %%f in (!CURRENT_FAILED!) do (
-    call :process_file %%f
-)
-echo.
-echo Retry pass finished.
-goto :menu
+goto :eof
 
 :process_file
 set "FULL_PATH=%~1"
@@ -79,7 +39,6 @@ if !errorlevel! equ 0 (
 ) else (
     echo [FAILURE]
     type compile_log.tmp
-    set "FAILED_LIST=!FAILED_LIST! "%FULL_PATH%""
 )
 del compile_log.tmp
 echo ------------------------------------------

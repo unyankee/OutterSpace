@@ -15,7 +15,11 @@
 #define VK_CHECK(VK_FUNCTION) \
 	do { \
 		VkResult Result = VK_FUNCTION; \
-		assert(Result == VK_SUCCESS); \
+		if (Result != VK_SUCCESS) { \
+			printf("Vulkan Error: %d at %s:%d\n", Result, __FILE__, __LINE__); \
+			fflush(stdout); \
+			assert(Result == VK_SUCCESS); \
+		} \
 	} while (0);
 
 #define ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
@@ -216,7 +220,9 @@ public:
 	//
 	void createRenderpass();
 	//
-	void createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags);
+	void createPersistentlyMappedBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags);
+	void createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags, const void* data = nullptr, bool bPersistentlyMapped = false);
+	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void DestroyBuffer(Buffer& Buffer);
 	//
 	uint32_t selectMemoryType(const uint32_t memoryTypeBits, VkMemoryPropertyFlags flags);
@@ -277,13 +283,9 @@ void EngineInstance::MainLoop()
 		testMesh.indices.push_back(0);
 	}
 
-	// Create tmp Meshes in here?
 	Buffer vb, ib;
-	createBuffer(vb, static_cast<uint32_t>(testMesh.vertices.size() * sizeof(Vertex)), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
-	createBuffer(ib, static_cast<uint32_t>(testMesh.indices.size() * sizeof(uint32_t)), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
-
-	memcpy(vb.data, testMesh.vertices.data(), testMesh.vertices.size() * sizeof(Vertex));
-	memcpy(ib.data, testMesh.indices.data(), testMesh.indices.size() * sizeof(uint32_t));
+	createBuffer(vb, static_cast<uint32_t>(testMesh.vertices.size() * sizeof(Vertex)), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.vertices.data(), true);
+	createBuffer(ib, static_cast<uint32_t>(testMesh.indices.size() * sizeof(uint32_t)), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.indices.data(), true);
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -375,6 +377,20 @@ void EngineInstance::MainLoop()
 		PresentInfo.swapchainCount = 1;
 
 		VK_CHECK(vkQueuePresentKHR(Queue, &PresentInfo));
+		
+		// Performance tracking
+		static double lastTime = glfwGetTime();
+		static int nbFrames = 0;
+		double currentTime = glfwGetTime();
+		nbFrames++;
+		if (currentTime - lastTime >= 0.01) {
+			char title[256];
+			sprintf(title, "OutterSpace - FPS: %.1f (%.2f ms)", double(nbFrames), 1000.0 / double(nbFrames));
+			glfwSetWindowTitle(window, title);
+			nbFrames = 0;
+			lastTime += 1.0;
+		}
+
 		// This is bad. here just for purely testing 
 		VK_CHECK(vkDeviceWaitIdle(Device))
 	}
@@ -400,6 +416,9 @@ void EngineInstance::InitInstance()
 	int InitResult = glfwInit();
 	assert(InitResult);
 
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+	
 	glfwInitHint(GLFW_CLIENT_API, GLFW_NO_API);
 
 	volkInitialize();
@@ -582,6 +601,22 @@ void EngineInstance::GetSwapchainFormat()
 
 void EngineInstance::CreateSwapchain()
 {
+	// TODO: Needed for recreating it? 
+	vkDeviceWaitIdle(Device);
+
+	if (swapchain.swapchain != VK_NULL_HANDLE)
+	{
+		for (auto framebuffer : swapchain.framebuffers)
+		{
+			vkDestroyFramebuffer(Device, framebuffer, nullptr);
+		}
+		for (auto imageView : swapchain.imageviews)
+		{
+			vkDestroyImageView(Device, imageView, nullptr);
+		}
+		// Do NOT destroy the old swapchain yet; we pass it to SwapchainCreateInfo.oldSwapchain
+	}
+	
 	VkSwapchainKHR LocalSwapchain = VK_NULL_HANDLE;
 
 	VkCompositeAlphaFlagBitsKHR CompositeAlphaFlags = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -598,13 +633,20 @@ void EngineInstance::CreateSwapchain()
 
 	int32_t Width = 0;
 	int32_t Heigh = 0;
-	glfwGetWindowSize(window, &Width, &Heigh);
+	glfwGetFramebufferSize(window, &Width, &Heigh);
 
 	VkSwapchainCreateInfoKHR SwapchainCreateInfo{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	SwapchainCreateInfo.surface = surface;
-	SwapchainCreateInfo.minImageCount = std::max<uint32_t>(2, SurfaceCaps.minImageCount);
+	
+	uint32_t imageCount = SurfaceCaps.minImageCount + 1;
+	if (SurfaceCaps.maxImageCount > 0 && imageCount > SurfaceCaps.maxImageCount)
+	{
+		imageCount = SurfaceCaps.maxImageCount;
+	}
+	SwapchainCreateInfo.minImageCount = imageCount;
+
 	SwapchainCreateInfo.imageFormat = surfaceFormat.format;
-	SwapchainCreateInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+	SwapchainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
 	SwapchainCreateInfo.imageExtent.width = Width;
 	SwapchainCreateInfo.imageExtent.height = Heigh;
 	SwapchainCreateInfo.imageArrayLayers = 1;
@@ -614,8 +656,26 @@ void EngineInstance::CreateSwapchain()
 	SwapchainCreateInfo.compositeAlpha = CompositeAlphaFlags;
 	SwapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 
-	SwapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+	// Query supported present modes
+	uint32_t presentModeCount;
+	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(PhysicalDevice, surface, &presentModeCount, nullptr));
+	std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(PhysicalDevice, surface, &presentModeCount, presentModes.data()));
 
+	// Default to FIFO
+	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+
+	// Try to find the one we are interested
+	for (const auto& mode : presentModes)
+	{
+		if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+		{
+			swapchainPresentMode = mode;
+			break;
+		}
+	}
+
+	SwapchainCreateInfo.presentMode = swapchainPresentMode;
 	SwapchainCreateInfo.oldSwapchain = swapchain.swapchain;
 
 	VK_CHECK(vkCreateSwapchainKHR(Device, &SwapchainCreateInfo, nullptr, &LocalSwapchain));
@@ -627,7 +687,7 @@ void EngineInstance::CreateSwapchain()
 	std::vector<VkFramebuffer> framebuffers;
 
 	swapchainImagesCount = 0;
-	vkGetSwapchainImagesKHR(Device, LocalSwapchain, &swapchainImagesCount, images.data());
+	vkGetSwapchainImagesKHR(Device, LocalSwapchain, &swapchainImagesCount, nullptr);
 	images.resize(swapchainImagesCount);
 	vkGetSwapchainImagesKHR(Device, LocalSwapchain, &swapchainImagesCount, images.data());
 
@@ -715,7 +775,7 @@ void EngineInstance::DestroyBuffer(Buffer& Buffer)
 	}
 }
 
-void EngineInstance::createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags)
+void EngineInstance::createPersistentlyMappedBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags)
 {
 	VkBufferCreateInfo Createinfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 	Createinfo.size = size;
@@ -764,6 +824,110 @@ void EngineInstance::createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsag
 		outBuffer.gpuAddress = vkGetBufferDeviceAddress(Device, &addressInfo);
 	}
 }
+
+void EngineInstance::createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags, const void* data, bool bPersistentlyMapped)
+{
+	if (bPersistentlyMapped)
+	{
+		createPersistentlyMappedBuffer(outBuffer, size, usageFlags);
+		if (data)
+		{
+			memcpy(outBuffer.data, data, size);
+		}
+		else
+		{
+			// error reporting, no data passed to this buffer?
+		}
+	}
+	else
+	{
+		VkBufferCreateInfo Createinfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+		Createinfo.size = size;
+		Createinfo.usage = usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VK_CHECK(vkCreateBuffer(Device, &Createinfo, nullptr, &buffer));
+
+		VkMemoryRequirements memoryReqs;
+		vkGetBufferMemoryRequirements(Device, buffer, &memoryReqs);
+
+		uint32_t memoryTypeIndex = selectMemoryType(memoryReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		VkMemoryAllocateInfo AllocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+		AllocateInfo.memoryTypeIndex = memoryTypeIndex;
+		AllocateInfo.allocationSize = memoryReqs.size;
+
+		VkMemoryAllocateFlagsInfo allocFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO };
+		allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+		
+		if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+		{
+			AllocateInfo.pNext = &allocFlagsInfo;
+		}
+
+		VkDeviceMemory memory = VK_NULL_HANDLE;
+		VK_CHECK(vkAllocateMemory(Device, &AllocateInfo, nullptr, &memory));
+		VK_CHECK(vkBindBufferMemory(Device, buffer, memory, 0));
+
+		outBuffer.buffer = buffer;
+		outBuffer.data = nullptr;
+		outBuffer.memory = memory;
+		outBuffer.size = size;
+		outBuffer.gpuAddress = 0;
+
+		if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+		{
+			VkBufferDeviceAddressInfo addressInfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+			addressInfo.buffer = buffer;
+			outBuffer.gpuAddress = vkGetBufferDeviceAddress(Device, &addressInfo);
+		}
+
+		if (data)
+		{
+			Buffer stagingBuffer;
+			createPersistentlyMappedBuffer(stagingBuffer, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+			memcpy(stagingBuffer.data, data, size);
+			copyBuffer(stagingBuffer.buffer, outBuffer.buffer, size);
+			DestroyBuffer(stagingBuffer);
+		}
+	}
+}
+
+void EngineInstance::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+	VkCommandPool tempPool = CreateCommandPool();
+
+	VkCommandBufferAllocateInfo AllocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+	AllocateInfo.commandPool = tempPool;
+	AllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	AllocateInfo.commandBufferCount = 1;
+
+	VkCommandBuffer CommandBuffer;
+	VK_CHECK(vkAllocateCommandBuffers(Device, &AllocateInfo, &CommandBuffer));
+
+	VkCommandBufferBeginInfo BeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+	BeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	VK_CHECK(vkBeginCommandBuffer(CommandBuffer, &BeginInfo));
+
+	VkBufferCopy CopyRegion = {};
+	CopyRegion.size = size;
+	vkCmdCopyBuffer(CommandBuffer, srcBuffer, dstBuffer, 1, &CopyRegion);
+
+	VK_CHECK(vkEndCommandBuffer(CommandBuffer));
+
+	VkSubmitInfo SubmitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	SubmitInfo.commandBufferCount = 1;
+	SubmitInfo.pCommandBuffers = &CommandBuffer;
+
+	VkQueue Queue;
+	vkGetDeviceQueue(Device, FamilyIndex, 0, &Queue);
+	VK_CHECK(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(Queue));
+
+	vkFreeCommandBuffers(Device, tempPool, 1, &CommandBuffer);
+	vkDestroyCommandPool(Device, tempPool, nullptr);
+}
+
 
 uint32_t EngineInstance::selectMemoryType(const uint32_t memoryTypeBits, VkMemoryPropertyFlags flags)
 {
@@ -817,7 +981,7 @@ void EngineInstance::createMeshPipeline(VkShaderModule vs, VkShaderModule fs)
 	// 
 	PipelineCreateIndo.stageCount = ARRAY_SIZE(ShaderStages);
 	PipelineCreateIndo.pStages = ShaderStages;
-	//
+	
 	// Empty, the vertex input layout will be dealt with in the shader itself
 	// there is no point on doing this, since it will make the vertex declaration
 	// way more complicated, and I want to have it explicitly in the shaders
@@ -849,6 +1013,7 @@ void EngineInstance::createMeshPipeline(VkShaderModule vs, VkShaderModule fs)
 		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO
 	};
 	RasterizationStateCreateInfo.lineWidth = 1.0f;
+	RasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
 	PipelineCreateIndo.pRasterizationState = &RasterizationStateCreateInfo;
 
 	VkPipelineMultisampleStateCreateInfo MultisampleStateCreateInfo = {
@@ -991,13 +1156,6 @@ VkShaderModule EngineInstance::loadShader(const char* shaderPath) const
 
 int main()
 {
-	printf("Hello world again \n");
-
-	// GLFW is a temporary solution, 
-	// later on in the project will be replaced
-	// with a custom implementation.
-	// Since the goal is to have the minimum overload 
-	// of external libraries as possible
 	EngineInstance Engine;
 	Engine.InitInstance();
 
