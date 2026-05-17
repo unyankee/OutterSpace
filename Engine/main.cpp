@@ -12,6 +12,7 @@
 #include <extern/meshoptimizer/extern/fast_obj.h>
 #include "Common/Common.h"
 #include "src/PipelineManager.h"
+#include "src/Camera.h"
 
 
 const uint32_t StartupWidthResolution = 1920;
@@ -32,6 +33,11 @@ struct Mesh
 {
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
+};
+
+struct GpuCameraData {
+	Mat4 view;
+	Mat4 proj;
 };
 
 bool loadMesh(Mesh& outMesh, const char* path)
@@ -185,6 +191,10 @@ public:
 
 	PipelineManager pipeline_manager;
 	//
+	Camera camera;
+
+	Buffer camera_buffer;
+	//
 
 	//
 	void MainLoop();
@@ -276,8 +286,16 @@ void EngineInstance::MainLoop()
 			if (swapchain.width != Width || swapchain.height != Heigh)
 			{
 				CreateSwapchain();
+				camera.setPerspective(70.f, (float)Width / (float)Heigh, 0.1f, 200.f);
 			}
 		}
+
+		// Update camera data on GPU
+		camera.update();
+		GpuCameraData camData;
+		camData.view = camera.getViewMatrix();
+		camData.proj = camera.getProjectionMatrix();
+		memcpy(camera_buffer.data, &camData, sizeof(GpuCameraData));
 
 		// Main rendering loop for now
 		uint32_t ImageIndex = 0;
@@ -322,7 +340,8 @@ void EngineInstance::MainLoop()
 
 		vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_manager.TmpPipeline.Pipeline);
 
-		vkCmdPushConstants(CommandBuffer,pipeline_manager.TmpPipeline.PipelineLayout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof(VkDeviceAddress),&vb.gpuAddress);
+		VkDeviceAddress addresses[] = { vb.gpuAddress, camera_buffer.gpuAddress };
+		vkCmdPushConstants(CommandBuffer, pipeline_manager.TmpPipeline.PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(addresses), addresses);
 
 		vkCmdBindIndexBuffer(CommandBuffer, ib.buffer, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(CommandBuffer, static_cast<uint32_t>(testMesh.indices.size()), 1, 0, 0, 0);
@@ -455,6 +474,11 @@ void EngineInstance::InitInstance()
 	//
 	volkLoadDevice(Device);
 	pipeline_manager.init(Device);
+
+	camera.setPerspective(70.f, (float)StartupWidthResolution / (float)StartupHeightResolution, 0.1f, 200.f);
+	camera.update();
+
+	createBuffer(camera_buffer, sizeof(GpuCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, nullptr, true);
 
 	CreateSurface();
 	GetSwapchainFormat();

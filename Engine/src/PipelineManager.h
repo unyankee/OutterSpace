@@ -10,9 +10,6 @@ namespace ToyEngine {
     {
         VkPipeline Pipeline;
         VkPipelineLayout PipelineLayout;
-        // Even though might be barely empty, renderpass is part of the concept
-        // that defines a pipeline (not vulkan pipeline, but the actual "Pipeline")
-        // we want to execute
     };
     
     
