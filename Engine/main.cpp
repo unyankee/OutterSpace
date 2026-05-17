@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <vector>
 #include <algorithm>
+#include <string>
 
 #include <Volk/volk.h>
 
@@ -9,25 +10,14 @@
 #include <GLFW/glfw3native.h>
 
 #include <extern/meshoptimizer/extern/fast_obj.h>
-
-
-
-#define VK_CHECK(VK_FUNCTION) \
-	do { \
-		VkResult Result = VK_FUNCTION; \
-		if (Result != VK_SUCCESS) { \
-			printf("Vulkan Error: %d at %s:%d\n", Result, __FILE__, __LINE__); \
-			fflush(stdout); \
-			assert(Result == VK_SUCCESS); \
-		} \
-	} while (0);
-
-#define ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
+#include "Common/Common.h"
+#include "src/PipelineManager.h"
 
 
 const uint32_t StartupWidthResolution = 1920;
 const uint32_t StartupHeightResolution = 1080;
 
+using namespace ToyEngine;
 
 // Testing vertex format
 // needs to be reduced in size as well
@@ -51,9 +41,11 @@ bool loadMesh(Mesh& outMesh, const char* path)
 		return false;
 	}
 
-	fastObjMesh* mesh = fast_obj_read(path);
+	std::string fullPath = std::string(ENGINE_PROJECT_ROOT) + "/" + path;
+	fastObjMesh* mesh = fast_obj_read(fullPath.c_str());
 	if (!mesh)
 	{
+		printf("Error: Could not find mesh at %s\n", fullPath.c_str());
 		return false;
 	}
 
@@ -130,7 +122,6 @@ struct Swapchain
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 	std::vector<VkImage> images;
 	std::vector<VkImageView> imageviews;
-	std::vector<VkFramebuffer> framebuffers;
 
 	uint32_t width;
 	uint32_t height;
@@ -174,17 +165,10 @@ public:
 	//
 	//std::vector<VkImage> SwapchainImages;
 	//
-	VkRenderPass RenderPass;
-	//
-	//std::vector<VkFramebuffer> Framebuffer;
-	//
-	//std::vector<VkImageView> SwapchainImageViews;
-	//
-	//uint32_t Width = 1920;
-	//uint32_t Height = 1080;
-	//
-	VkPipeline MeshPipeline;
-	VkPipelineLayout MeshPipelineLayout;
+	//VkRenderPass RenderPass;
+
+	//VkPipeline MeshPipeline;
+	//VkPipelineLayout MeshPipelineLayout;
 
 	Swapchain swapchain;
 
@@ -199,7 +183,7 @@ public:
 	// it does changes over time
 	//
 
-
+	PipelineManager pipeline_manager;
 	//
 
 	//
@@ -218,27 +202,21 @@ public:
 	//
 	void CreateSwapchain();
 	//
-	void createRenderpass();
+	//void createRenderpass();
 	//
 	void createPersistentlyMappedBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags);
 	void createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags, const void* data = nullptr, bool bPersistentlyMapped = false);
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void DestroyBuffer(Buffer& Buffer);
-	//
 	uint32_t selectMemoryType(const uint32_t memoryTypeBits, VkMemoryPropertyFlags flags);
-	//
-	//void GetOrCreateSwapchainImages();
-	//
-	//void createImageView();
-	//
-	//void createFramebuffer();
-	//
-	void createMeshPipeline(VkShaderModule vs, VkShaderModule fs);
-	//
+	
+	
+
+
 	uint32_t getGraphicsQueueFamily();
-	// 
+
 	void RegisterDebugCallback();
-	// 
+
 	static VkImageMemoryBarrier ImageBarrier(VkImage Image, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 	VkShaderModule loadShader(const char* shaderPath) const;
@@ -272,20 +250,19 @@ void EngineInstance::MainLoop()
 	VkShaderModule MeshVs = loadShader("Shaders/mesh.vert.spv");
 	VkShaderModule MeshFs = loadShader("Shaders/mesh.frag.spv");
 	
-	createMeshPipeline(MeshVs, MeshFs);
+	pipeline_manager.createMeshPipeline(MeshVs, MeshFs, surfaceFormat.format);
+	//createMeshPipeline(MeshVs, MeshFs);
 
 	Mesh testMesh;
-	//if (!loadMesh(testMesh, "../assets/models/xyzrgb_dragon.obj"))
-	if (!loadMesh(testMesh, "../assets/models/kitten.obj"))
+	if (!loadMesh(testMesh, "assets/models/kitten.obj"))
 	{
-		printf("Failed to load mesh, using dummy data\n");
-		testMesh.vertices.push_back({ 0, 0, 0, 0, 0, 0, 0, 0 });
-		testMesh.indices.push_back(0);
+		// assert for now, hard crash is better to find this
+		assert(!"");
 	}
 
 	Buffer vb, ib;
-	createBuffer(vb, static_cast<uint32_t>(testMesh.vertices.size() * sizeof(Vertex)), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.vertices.data(), true);
-	createBuffer(ib, static_cast<uint32_t>(testMesh.indices.size() * sizeof(uint32_t)), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.indices.data(), true);
+	createBuffer(vb, static_cast<uint32_t>(testMesh.vertices.size() * sizeof(Vertex)), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.vertices.data());
+	createBuffer(ib, static_cast<uint32_t>(testMesh.indices.size() * sizeof(uint32_t)), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.indices.data());
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -322,16 +299,20 @@ void EngineInstance::MainLoop()
 		constexpr VkClearColorValue ClearColorValue = { 27.0f / 255.0f, 3.0f / 255.0f, 3.0f / 255.0f, 1.0f };
 		VkClearValue ClearValue = { ClearColorValue };
 
-		VkRenderPassBeginInfo RenderpassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-		RenderpassBeginInfo.renderPass = RenderPass;
-		RenderpassBeginInfo.framebuffer = swapchain.framebuffers[ImageIndex];
-		RenderpassBeginInfo.renderArea.extent = { swapchain.width, swapchain.height };
-		RenderpassBeginInfo.renderArea.offset = { 0, 0 };
-		RenderpassBeginInfo.clearValueCount = 1;
-		RenderpassBeginInfo.pClearValues = &ClearValue;
+        VkRenderingAttachmentInfo ColorAttachment = { VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+        ColorAttachment.imageView = swapchain.imageviews[ImageIndex];
+        ColorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        ColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        ColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        ColorAttachment.clearValue = ClearValue;
 
+        VkRenderingInfo RenderingInfo = { VK_STRUCTURE_TYPE_RENDERING_INFO };
+        RenderingInfo.renderArea.extent = { swapchain.width, swapchain.height };
+        RenderingInfo.layerCount = 1;
+        RenderingInfo.colorAttachmentCount = 1;
+        RenderingInfo.pColorAttachments = &ColorAttachment;
 
-		vkCmdBeginRenderPass(CommandBuffer, &RenderpassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRendering(CommandBuffer, &RenderingInfo);
 
 		VkViewport Viewport = { 0, float(swapchain.height), float(swapchain.width), -float(swapchain.height), 0.0f, 1.0f };
 		vkCmdSetViewport(CommandBuffer, 0, 1, &Viewport);
@@ -339,14 +320,14 @@ void EngineInstance::MainLoop()
 		VkRect2D Scissor = { 0, 0, (swapchain.width), (swapchain.height) };
 		vkCmdSetScissor(CommandBuffer, 0, 1, &Scissor);
 
-		vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, MeshPipeline);
+		vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_manager.TmpPipeline.Pipeline);
 
-		vkCmdPushConstants(CommandBuffer,MeshPipelineLayout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof(VkDeviceAddress),&vb.gpuAddress);
+		vkCmdPushConstants(CommandBuffer,pipeline_manager.TmpPipeline.PipelineLayout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof(VkDeviceAddress),&vb.gpuAddress);
 
 		vkCmdBindIndexBuffer(CommandBuffer, ib.buffer, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(CommandBuffer, static_cast<uint32_t>(testMesh.indices.size()), 1, 0, 0, 0);
 
-		vkCmdEndRenderPass(CommandBuffer);
+		vkCmdEndRendering(CommandBuffer);
 
 		const VkImageMemoryBarrier RenderEndBarrier = ImageBarrier(swapchain.images[ImageIndex], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 		vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, 0, 0, 0, 1, &RenderEndBarrier);
@@ -358,7 +339,6 @@ void EngineInstance::MainLoop()
 		VkPipelineStageFlags PipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 		VkSubmitInfo SubmitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-		const void* pNext;
 		SubmitInfo.pWaitDstStageMask = &PipelineStageFlags;
 		SubmitInfo.waitSemaphoreCount = 1;
 		SubmitInfo.pWaitSemaphores = &AquireSemaphone;
@@ -474,11 +454,11 @@ void EngineInstance::InitInstance()
 	CreateDevice();
 	//
 	volkLoadDevice(Device);
+	pipeline_manager.init(Device);
 
 	CreateSurface();
 	GetSwapchainFormat();
 	//GetOrCreateSwapchainImages();
-	createRenderpass();
 	CreateSwapchain();
 	//createImageView();
 	//createFramebuffer();
@@ -555,13 +535,16 @@ void EngineInstance::CreateDevice()
 	VkPhysicalDeviceBufferDeviceAddressFeatures BDAFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
 	BDAFeatures.bufferDeviceAddress = VK_TRUE; 
 
-
+	// We do not want to deal with renderpasses nor framebuffers
+	VkPhysicalDeviceDynamicRenderingFeatures DynamicRenderingFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
+	DynamicRenderingFeatures.dynamicRendering = VK_TRUE;
+	DynamicRenderingFeatures.pNext = &BDAFeatures;
 	
 	//DeviceCreateInfo.enabledExtensionCount;
 	//DeviceCreateInfo.ppEnabledExtensionNames;
 	//DeviceCreateInfo.pEnabledFeatures;
 	
-	DeviceCreateInfo.pNext = &BDAFeatures;
+	DeviceCreateInfo.pNext = &DynamicRenderingFeatures;
 
 	VK_CHECK(vkCreateDevice(PhysicalDevice, &DeviceCreateInfo, nullptr, &Device));
 }
@@ -606,10 +589,6 @@ void EngineInstance::CreateSwapchain()
 
 	if (swapchain.swapchain != VK_NULL_HANDLE)
 	{
-		for (auto framebuffer : swapchain.framebuffers)
-		{
-			vkDestroyFramebuffer(Device, framebuffer, nullptr);
-		}
 		for (auto imageView : swapchain.imageviews)
 		{
 			vkDestroyImageView(Device, imageView, nullptr);
@@ -680,11 +659,16 @@ void EngineInstance::CreateSwapchain()
 
 	VK_CHECK(vkCreateSwapchainKHR(Device, &SwapchainCreateInfo, nullptr, &LocalSwapchain));
 
+	if (swapchain.swapchain != VK_NULL_HANDLE)
+	{
+		vkDestroySwapchainKHR(Device, swapchain.swapchain, nullptr);
+	}
+	// Remove the old one when used, assuming we safely got the new one
+	
 	VK_CHECK(vkDeviceWaitIdle(Device));
 
 	std::vector<VkImage> images;
 	std::vector<VkImageView> imageviews;
-	std::vector<VkFramebuffer> framebuffers;
 
 	swapchainImagesCount = 0;
 	vkGetSwapchainImagesKHR(Device, LocalSwapchain, &swapchainImagesCount, nullptr);
@@ -706,26 +690,7 @@ void EngineInstance::CreateSwapchain()
 		VK_CHECK(vkCreateImageView(Device, &ImageViewCreateInfo, nullptr, &imageviews[i]))
 	}
 
-	framebuffers.resize(swapchainImagesCount);
-	for (uint32_t i = 0; i < swapchainImagesCount; ++i)
-	{
-		VkFramebufferCreateInfo FramebufferCreateInfo{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-		FramebufferCreateInfo.flags;
-		FramebufferCreateInfo.renderPass = RenderPass;
-		FramebufferCreateInfo.attachmentCount = 1;
-		FramebufferCreateInfo.pAttachments = &imageviews[i];
-		FramebufferCreateInfo.width = Width;
-		FramebufferCreateInfo.height = Heigh;
-		FramebufferCreateInfo.layers = 1;
-
-		vkCreateFramebuffer(Device, &FramebufferCreateInfo, nullptr, &framebuffers[i]);
-	}
-
-
-
 	swapchain.swapchain = LocalSwapchain;
-	//
-	swapchain.framebuffers = framebuffers;
 	swapchain.imageviews = imageviews;
 	swapchain.images = images;
 
@@ -733,37 +698,6 @@ void EngineInstance::CreateSwapchain()
 	swapchain.height = Heigh;
 
 	VK_CHECK(vkDeviceWaitIdle(Device));
-}
-
-void EngineInstance::createRenderpass()
-{
-	// This will be removed once we get rid of renderpasses later.
-	// just need this for the purpose of rendering something, but it will be removed
-	// soon, since the addition of dynamic rendering and removing renderpasses (and framebuffers)
-	VkAttachmentDescription attachment[1] = {};
-	attachment[0].format = surfaceFormat.format;
-	attachment[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachment[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachment[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachment[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attachment[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentReference ColorAttachments = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-
-	VkSubpassDescription Subpass = {};
-	Subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	Subpass.colorAttachmentCount = 1;
-	Subpass.pColorAttachments = &ColorAttachments;
-
-	VkRenderPassCreateInfo RenderPassCreateInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	RenderPassCreateInfo.attachmentCount = ARRAY_SIZE(attachment);
-	RenderPassCreateInfo.pAttachments = attachment;
-	RenderPassCreateInfo.subpassCount = 1;
-	RenderPassCreateInfo.pSubpasses = &Subpass;
-
-	VK_CHECK(vkCreateRenderPass(Device, &RenderPassCreateInfo, nullptr, &RenderPass))
 }
 
 void EngineInstance::DestroyBuffer(Buffer& Buffer)
@@ -944,128 +878,15 @@ uint32_t EngineInstance::selectMemoryType(const uint32_t memoryTypeBits, VkMemor
 	return -1;
 }
 
-void EngineInstance::createMeshPipeline(VkShaderModule vs, VkShaderModule fs)
-{
-	// Need to specify that the shader will receive a pointer to the vertex buffer via push constant
-	// This needs to be expanded when more buffers are needed (eg: textures)
-	VkPushConstantRange PushConstantRange{};
-	PushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; 
-	PushConstantRange.offset = 0;
-	PushConstantRange.size = sizeof(VkDeviceAddress);
-	
-	VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	PipelineLayoutCreateInfo.flags;
 
-	// isn't it lovely to avoid this? 
-	PipelineLayoutCreateInfo.setLayoutCount = 0;
-	PipelineLayoutCreateInfo.pSetLayouts = nullptr;
-	
-	PipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-	PipelineLayoutCreateInfo.pPushConstantRanges = &PushConstantRange;
-
-	VK_CHECK(vkCreatePipelineLayout(Device, &PipelineLayoutCreateInfo, nullptr, &MeshPipelineLayout));
-
-	VkGraphicsPipelineCreateInfo PipelineCreateIndo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-
-	VkPipelineShaderStageCreateInfo ShaderStages[2] = {};
-	ShaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	ShaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-
-	ShaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-	ShaderStages[0].module = vs;
-	ShaderStages[0].pName = "main";
-
-	ShaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	ShaderStages[1].module = fs;
-	ShaderStages[1].pName = "main";
-	// 
-	PipelineCreateIndo.stageCount = ARRAY_SIZE(ShaderStages);
-	PipelineCreateIndo.pStages = ShaderStages;
-	
-	// Empty, the vertex input layout will be dealt with in the shader itself
-	// there is no point on doing this, since it will make the vertex declaration
-	// way more complicated, and I want to have it explicitly in the shaders
-	// that way is way more scalable and easier to read (it should have no impact on perf)
-	VkPipelineVertexInputStateCreateInfo VertexInputStateCreateInfo = {
-		VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
-	};
-	//
-	PipelineCreateIndo.pVertexInputState = &VertexInputStateCreateInfo;
-	//
-	VkPipelineInputAssemblyStateCreateInfo InputAssemblyCreateInfo = {
-		VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO
-	};
-	InputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	//
-	PipelineCreateIndo.pInputAssemblyState = &InputAssemblyCreateInfo;
-	//
-	VkPipelineTessellationStateCreateInfo TessellationStateCreateInfo = {
-		VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO
-	};
-	PipelineCreateIndo.pTessellationState = &TessellationStateCreateInfo;
-	//
-	VkPipelineViewportStateCreateInfo ViewportStateCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
-	ViewportStateCreateInfo.viewportCount = 1;
-	ViewportStateCreateInfo.scissorCount = 1;
-	PipelineCreateIndo.pViewportState = &ViewportStateCreateInfo;
-	//
-	VkPipelineRasterizationStateCreateInfo RasterizationStateCreateInfo = {
-		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO
-	};
-	RasterizationStateCreateInfo.lineWidth = 1.0f;
-	RasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-	PipelineCreateIndo.pRasterizationState = &RasterizationStateCreateInfo;
-
-	VkPipelineMultisampleStateCreateInfo MultisampleStateCreateInfo = {
-		VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO
-	};
-	MultisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	PipelineCreateIndo.pMultisampleState = &MultisampleStateCreateInfo;
-
-	VkPipelineDepthStencilStateCreateInfo DepthStencilStateCreateInfo = {
-		VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO
-	};
-	PipelineCreateIndo.pDepthStencilState = &DepthStencilStateCreateInfo;
-	//
-	VkPipelineColorBlendAttachmentState ColorBlendAttachmentState = {};
-	ColorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-	VkPipelineColorBlendStateCreateInfo ColorBlendStateCreateInfo = {
-		VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO
-	};
-	ColorBlendStateCreateInfo.attachmentCount = 1;
-	ColorBlendStateCreateInfo.pAttachments = &ColorBlendAttachmentState;
-	PipelineCreateIndo.pColorBlendState = &ColorBlendStateCreateInfo;
-
-	VkDynamicState DynamicStates[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-	VkPipelineDynamicStateCreateInfo DynamicStateCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
-	DynamicStateCreateInfo.dynamicStateCount = ARRAY_SIZE(DynamicStates);
-	DynamicStateCreateInfo.pDynamicStates = DynamicStates;
-	PipelineCreateIndo.pDynamicState = &DynamicStateCreateInfo;
-
-	PipelineCreateIndo.layout = MeshPipelineLayout;
-
-	PipelineCreateIndo.renderPass = RenderPass;
-
-	//PipelineCreateIndo.subpass = ;
-
-	//PipelineCreateIndo.basePipelineHandle;
-
-	//PipelineCreateIndo.basePipelineIndex;
-
-
-	// This should be used later,
-	// as usual now, taking shortcucts
-	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateGraphicsPipelines(Device, pipelineCache, 1, &PipelineCreateIndo, nullptr, &MeshPipeline))
-}
 
 uint32_t EngineInstance::getGraphicsQueueFamily()
 {
-	VkQueueFamilyProperties queues[64];
-	uint32_t queueCount = sizeof(queues) / sizeof(queues[0]);
-	vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &queueCount, queues);
+	uint32_t queueCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &queueCount, nullptr);
+	
+	std::vector<VkQueueFamilyProperties> queues(queueCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &queueCount, queues.data());
 
 	for (uint32_t i = 0; i < queueCount; ++i)
 	{
@@ -1133,10 +954,15 @@ VkImageMemoryBarrier EngineInstance::ImageBarrier(VkImage Image, VkAccessFlags s
 
 VkShaderModule EngineInstance::loadShader(const char* shaderPath) const
 {
-	FILE* file = fopen(shaderPath, "rb");
-	assert(file != nullptr);
-	fseek(file, 0, SEEK_END);
+	std::string fullPath = std::string(ENGINE_DIR) + "/" + shaderPath;
+	FILE* file = fopen(fullPath.c_str(), "rb");
+	if (!file)
+	{
+		printf("Error: Could not find shader at %s\n", fullPath.c_str());
+		assert(file);
+	}
 
+	fseek(file, 0, SEEK_END);
 	uint32_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
@@ -1149,8 +975,10 @@ VkShaderModule EngineInstance::loadShader(const char* shaderPath) const
 	ShaderModuleCreateInfo.pCode = reinterpret_cast<const uint32_t*>(code);
 
 	VkShaderModule ShaderModule;
-	VK_CHECK(vkCreateShaderModule(Device, &ShaderModuleCreateInfo, nullptr, &ShaderModule))
-		return ShaderModule;
+	VK_CHECK(vkCreateShaderModule(Device, &ShaderModuleCreateInfo, nullptr, &ShaderModule));
+
+	delete[] code;
+	return ShaderModule;
 }
 
 

@@ -9,15 +9,30 @@ echo ==========================================
 echo    ToyEngine Setup Utility
 echo ==========================================
 
+:: 0. Download GEnie
+echo [0/4] Downloading GEnie...
+if not exist "bin" mkdir bin
+if not exist "bin\genie.exe" (
+    curl -L -o bin\genie.exe https://github.com/bkaradzic/bx/raw/master/tools/bin/windows/genie.exe
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to download GEnie.
+        pause
+        exit /b 1
+    )
+    echo [INFO] GEnie downloaded successfully.
+) else (
+    echo [INFO] GEnie already exists in bin/
+)
+
 :: 1. Initialize Submodules
-echo [1/3] Initializing submodules...
+echo [1/4] Initializing submodules...
 git submodule update --init --recursive
 if %errorlevel% neq 0 (
     echo [WARNING] Failed to initialize submodules. Ensure git is installed and you have internet access.
 )
 
 :: 2. Find/Verify Vulkan SDK
-echo [2/3] Verifying Vulkan SDK...
+echo [2/4] Verifying Vulkan SDK...
 if not defined VULKAN_SDK (
     if exist "%VULKAN_PATH%" (
         set "VULKAN_SDK=%VULKAN_PATH%"
@@ -33,7 +48,7 @@ if not defined VULKAN_SDK (
 )
 
 :: 3. Initial Shader Compilation
-echo [3/3] Compiling Shaders...
+echo [3/4] Compiling Shaders...
 if not exist "Engine\Shaders" (
     echo [ERROR] Engine\Shaders directory not found.
     pause
