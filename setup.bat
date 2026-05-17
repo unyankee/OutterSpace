@@ -10,7 +10,7 @@ echo    ToyEngine Setup Utility
 echo ==========================================
 
 :: 0. Download GEnie
-echo [0/4] Downloading GEnie...
+echo [0/5] Downloading GEnie...
 if not exist "bin" mkdir bin
 if not exist "bin\genie.exe" (
     curl -L -o bin\genie.exe https://github.com/bkaradzic/bx/raw/master/tools/bin/windows/genie.exe
@@ -25,14 +25,27 @@ if not exist "bin\genie.exe" (
 )
 
 :: 1. Initialize Submodules
-echo [1/4] Initializing submodules...
+echo [1/5] Initializing submodules...
 git submodule update --init --recursive
 if %errorlevel% neq 0 (
     echo [WARNING] Failed to initialize submodules. Ensure git is installed and you have internet access.
 )
 
+:: 1.5. Download STB
+echo [1.5/5] Downloading STB...
+if not exist "extern\stb" (
+    git clone --depth 1 https://github.com/nothings/stb.git extern\stb
+    if %errorlevel% neq 0 (
+        echo [WARNING] Failed to clone STB. You might need to download it manually.
+    ) else (
+        echo [INFO] STB cloned successfully.
+    )
+) else (
+    echo [INFO] STB already exists in extern/stb
+)
+
 :: 2. Find/Verify Vulkan SDK
-echo [2/4] Verifying Vulkan SDK...
+echo [2/5] Verifying Vulkan SDK...
 if not defined VULKAN_SDK (
     if exist "%VULKAN_PATH%" (
         set "VULKAN_SDK=%VULKAN_PATH%"
@@ -48,7 +61,7 @@ if not defined VULKAN_SDK (
 )
 
 :: 3. Initial Shader Compilation
-echo [3/4] Compiling Shaders...
+echo [3/5] Compiling Shaders...
 if not exist "Engine\Shaders" (
     echo [ERROR] Engine\Shaders directory not found.
     pause

@@ -1,6 +1,7 @@
 #version 450
 #extension GL_EXT_buffer_reference : require
 
+
 struct Vertex
 {
 	float vx, vy, vz;
@@ -27,9 +28,11 @@ layout(push_constant) uniform Constants
 {
     VertexBufferPtr vertexBufferAddress; 
     CameraBufferPtr cameraBufferAddress;
+    uint textureIndex;
 } push;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec2 outUV;
+layout(location = 1) out vec3 outNormal;
 
 void main()
 {
@@ -43,6 +46,7 @@ void main()
     CameraData cam = push.cameraBufferAddress.camera;
 
     gl_Position = cam.proj * cam.view * vec4(position, 1.0);
-    outColor = vec4(normal * 0.5 + vec3(0.5), 1.0);
 
+    outUV = texCoord;
+    outNormal = normal;
 }

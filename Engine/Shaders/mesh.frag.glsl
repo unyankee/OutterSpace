@@ -1,9 +1,34 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : require 
+#extension GL_ARB_gpu_shader_int64 : require    
 
-layout (location = 0) in vec4 IntColor;
-layout (location = 0) out vec4 OutColor;
+layout(location = 0) in vec2 inUV;
+layout(location = 1) in vec3 inNormal;
+
+layout(set = 0, binding = 0) uniform texture2D globalTextures[];
+layout(set = 0, binding = 1) uniform sampler globalSamplers[];
+
+layout(location = 0) out vec4 outColor;
+
+layout(push_constant) uniform Constants 
+{
+    uint64_t vertexBufferAddress; 
+    uint64_t cameraBufferAddress; 
+    uint textureIndex;            
+    uint samplerIndex;           
+} push;
 
 void main()
 {
-	OutColor = IntColor;
+    vec4 texColor = texture(
+        sampler2D(
+            globalTextures[nonuniformEXT(push.textureIndex)], 
+            globalSamplers[nonuniformEXT(push.samplerIndex)]
+        ), 
+        inUV
+    );
+
+    float lightIntensity = max(dot(normalize(inNormal), normalize(vec3(0.5, 1.0, 0.3))), 0.2);
+
+    outColor = vec4(texColor.rgb * lightIntensity, texColor.a);
 }

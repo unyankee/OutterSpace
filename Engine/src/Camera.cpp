@@ -5,7 +5,7 @@
 namespace ToyEngine
 {
     Camera::Camera()
-        : m_position({0.0f, 0.0f, -1.0f})
+        : m_position({80.0f, 20.0f, 80.0f})
           , m_target({0.0f, 0.0f, 0.0f})
           , m_up({0.0f, 1.0f, 0.0f})
     {

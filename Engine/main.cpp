@@ -9,6 +9,9 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <extern/stb/stb_image.h>
+
 #include <extern/meshoptimizer/extern/fast_obj.h>
 
 #include "meshoptimizer.h"
@@ -40,6 +43,16 @@ struct Mesh
 struct GpuCameraData {
 	Mat4 view;
 	Mat4 proj;
+};
+
+struct Swapchain
+{
+	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+	std::vector<VkImage> images;
+	std::vector<VkImageView> imageviews;
+
+	uint32_t width;
+	uint32_t height;
 };
 
 
@@ -133,34 +146,6 @@ bool loadMesh(Mesh& outMesh, const char* path)
     return true;
 }
 
-
-struct Buffer
-{
-	VkBuffer buffer;
-	VkDeviceMemory memory;
-	VkDeviceAddress gpuAddress;
-	void* data;
-	uint32_t size;
-};
-
-struct RenderTarget
-{
-	VkImage image = VK_NULL_HANDLE;
-	VkImageView imageView = VK_NULL_HANDLE;
-	VkDeviceMemory memory = VK_NULL_HANDLE; 
-};
-
-
-struct Swapchain
-{
-	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-	std::vector<VkImage> images;
-	std::vector<VkImageView> imageviews;
-
-	uint32_t width;
-	uint32_t height;
-};
-
 // Temporary class to hold all the relevant engine data
 // is not API agnostic (just yet)
 // need to investigate other API's as well to
@@ -239,6 +224,14 @@ public:
 	// 
 	void GetSwapchainFormat();
 	//
+	TextureResource LoadTexture(const char* filename);
+
+	// tmp helpers to aid creating / copying / transitions	
+	VkCommandBuffer beginImmediateCommandBuffer(VkCommandPool tempPool);
+	void endImmediateCommandBuffer(VkCommandBuffer cmdBuffer, VkCommandPool tempPool);
+	void transitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage);
+	void copyBufferToImage(VkCommandBuffer cmd, VkBuffer srcBuffer, VkImage dstImage, uint32_t width, uint32_t height);
+	
 	void CreateSwapchain();
 	void CreateDepthTexture();
 	//
@@ -246,7 +239,7 @@ public:
 	//
 	void createPersistentlyMappedBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags);
 	void createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsageFlags usageFlags, const void* data = nullptr, bool bPersistentlyMapped = false);
-	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool);
 	void DestroyBuffer(Buffer& Buffer);
 	uint32_t selectMemoryType(const uint32_t memoryTypeBits, VkMemoryPropertyFlags flags);
 	
@@ -263,6 +256,149 @@ public:
 
 	VkCommandPool CreateCommandPool();
 };
+
+
+VkCommandBuffer EngineInstance::beginImmediateCommandBuffer(VkCommandPool tempPool)
+{
+	VkCommandBufferAllocateInfo allocInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = tempPool;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer cmdBuffer;
+	VK_CHECK(vkAllocateCommandBuffers(Device, &allocInfo, &cmdBuffer));
+
+	VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+
+	return cmdBuffer;
+}
+
+void EngineInstance::endImmediateCommandBuffer(VkCommandBuffer cmdBuffer, VkCommandPool tempPool)
+{
+	VK_CHECK(vkEndCommandBuffer(cmdBuffer));
+
+	VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+
+	VkQueue queue;
+	vkGetDeviceQueue(Device, FamilyIndex, 0, &queue);
+
+	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(queue));
+
+	vkFreeCommandBuffers(Device, tempPool, 1, &cmdBuffer);
+}
+
+void EngineInstance::transitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout,
+                                           VkImageLayout newLayout, VkPipelineStageFlags srcStage,
+                                           VkPipelineStageFlags dstStage)
+{
+	VkImageMemoryBarrier barrier = ImageBarrier(image, 0, 0, oldLayout, newLayout);
+
+	if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	}
+	vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void EngineInstance::copyBufferToImage(VkCommandBuffer cmd, VkBuffer srcBuffer, VkImage dstImage, uint32_t width,
+                                       uint32_t height)
+{
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = {0, 0, 0};
+	region.imageExtent = {width, height, 1};
+
+	vkCmdCopyBufferToImage(cmd, srcBuffer, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+}
+
+TextureResource EngineInstance::LoadTexture(const char* filename)
+{
+	TextureResource outTexture{};
+
+	std::string fullPath = std::string(ENGINE_PROJECT_ROOT) + "/" + filename;
+	int texWidth = 0, texHeight = 0, texChannels = 0;
+	stbi_uc* pixels = stbi_load(fullPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!pixels)
+	{
+		printf("Failed to load texture image: %s\n", fullPath.c_str());
+		return outTexture;
+	}
+
+	uint32_t imageSize = static_cast<uint32_t>(texWidth * texHeight * 4);
+
+	Buffer stagingBuffer{};
+	createBuffer(stagingBuffer, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, pixels, true);
+	stbi_image_free(pixels);
+
+	VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.extent = {static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1};
+	imageInfo.mipLevels = 1;
+	imageInfo.arrayLayers = 1;
+	imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	vkCreateImage(Device, &imageInfo, nullptr, &outTexture.image);
+
+	VkMemoryRequirements memReqs;
+	vkGetImageMemoryRequirements(Device, outTexture.image, &memReqs);
+
+	VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+	allocInfo.allocationSize = memReqs.size;
+	allocInfo.memoryTypeIndex = selectMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	vkAllocateMemory(Device, &allocInfo, nullptr, &outTexture.memory);
+	vkBindImageMemory(Device, outTexture.image, outTexture.memory, 0);
+
+	VkCommandPool tempPool = CreateCommandPool();
+	VkCommandBuffer cmd = beginImmediateCommandBuffer(tempPool);
+
+	transitionImageLayout(cmd, outTexture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	                      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+	copyBufferToImage(cmd, stagingBuffer.buffer, outTexture.image, imageInfo.extent.width, imageInfo.extent.height);
+
+	transitionImageLayout(cmd, outTexture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+	                      VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+	endImmediateCommandBuffer(cmd, tempPool);
+
+	DestroyBuffer(stagingBuffer);
+
+	VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+	viewInfo.image = outTexture.image;
+	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.layerCount = 1;
+	vkCreateImageView(Device, &viewInfo, nullptr, &outTexture.view);
+
+	//outTexture.bindlessIndex = globalBindlessManager.RegisterTexture(outTexture.view);
+	outTexture.bindlessIndex = 0;
+
+	return outTexture;
+}
 
 
 void EngineInstance::MainLoop()
@@ -294,12 +430,15 @@ void EngineInstance::MainLoop()
 	//createMeshPipeline(MeshVs, MeshFs);
 
 	Mesh testMesh;
-	if (!loadMesh(testMesh, "assets/models/kitten.obj"))
+	if (!loadMesh(testMesh, "assets/models/untitled.obj"))
 	{
 		// assert for now, hard crash is better to find this
 		assert(!"");
 	}
 
+	TextureResource texture = LoadTexture("assets/models/Dragon_Bump_Col2.jpg");
+	pipeline_manager.AddTextureToGlobalDescriptorSet(texture);
+	
 	Buffer vb, ib;
 	createBuffer(vb, static_cast<uint32_t>(testMesh.vertices.size() * sizeof(Vertex)), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.vertices.data());
 	createBuffer(ib, static_cast<uint32_t>(testMesh.indices.size() * sizeof(uint32_t)), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.indices.data());
@@ -316,7 +455,7 @@ void EngineInstance::MainLoop()
 			if (swapchain.width != Width || swapchain.height != Heigh)
 			{
 				CreateSwapchain();
-				camera.setPerspective(70.f, (float)Width / (float)Heigh, 0.1f, 200.f);
+				camera.setPerspective(70.f, (float)Width / (float)Heigh, 0.1f, 1000.f);
 			}
 		}
 
@@ -371,6 +510,9 @@ void EngineInstance::MainLoop()
 		constexpr VkClearColorValue ClearColorValue = {27.0f / 255.0f, 3.0f / 255.0f, 3.0f / 255.0f, 1.0f};
 		VkClearValue ClearValue = {ClearColorValue};
 
+		VkClearValue depthClear;
+		depthClear.depthStencil = { 1.0f, 0 };
+		
 		VkRenderingAttachmentInfo ColorAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
 		ColorAttachment.imageView = swapchain.imageviews[ImageIndex];
         ColorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -383,7 +525,7 @@ void EngineInstance::MainLoop()
         DepthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         DepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         DepthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        DepthAttachment.clearValue = ClearValue;
+        DepthAttachment.clearValue = depthClear;
 
         VkRenderingInfo RenderingInfo = { VK_STRUCTURE_TYPE_RENDERING_INFO };
         RenderingInfo.renderArea.extent = { swapchain.width, swapchain.height };
@@ -402,8 +544,23 @@ void EngineInstance::MainLoop()
 
 		vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_manager.TmpPipeline.Pipeline);
 
-		VkDeviceAddress addresses[] = { vb.gpuAddress, camera_buffer.gpuAddress };
-		vkCmdPushConstants(CommandBuffer, pipeline_manager.TmpPipeline.PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(addresses), addresses);
+		vkCmdBindDescriptorSets(
+			CommandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipeline_manager.TmpPipeline.PipelineLayout,
+			0, 1, &pipeline_manager.globalBindlessDescriptorSet,
+			0, nullptr
+		);
+
+		const uint32_t dummyTextureIndex = 0;
+		const uint32_t dummySamplerIndex = 0;
+
+		DefaultPipelineLayout PushData
+		{
+			vb.gpuAddress, camera_buffer.gpuAddress, dummyTextureIndex, dummySamplerIndex 
+		};
+		
+		vkCmdPushConstants(CommandBuffer, pipeline_manager.TmpPipeline.PipelineLayout,VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DefaultPipelineLayout), &PushData);
 
 		vkCmdBindIndexBuffer(CommandBuffer, ib.buffer, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(CommandBuffer, static_cast<uint32_t>(testMesh.indices.size()), 1, 0, 0, 0);
@@ -552,7 +709,7 @@ void EngineInstance::InitInstance()
 	volkLoadDevice(Device);
 	pipeline_manager.init(Device);
 
-	camera.setPerspective(70.f, (float)StartupWidthResolution / (float)StartupHeightResolution, 0.1f, 200.f);
+	camera.setPerspective(70.f, (float)StartupWidthResolution / (float)StartupHeightResolution, 0.1f, 1000.f);
 	camera.update();
 
 	createBuffer(camera_buffer, sizeof(GpuCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, nullptr, true);
@@ -618,6 +775,8 @@ void EngineInstance::CreateDevice()
 	DeviceQueueCreateInfo.queueCount = 1;
 	DeviceQueueCreateInfo.pQueuePriorities = QueuePriorities;
 
+
+	
 	VkDeviceCreateInfo DeviceCreateInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	DeviceCreateInfo.queueCreateInfoCount = 1;
 	DeviceCreateInfo.pQueueCreateInfos = &DeviceQueueCreateInfo;
@@ -633,20 +792,24 @@ void EngineInstance::CreateDevice()
 	DeviceCreateInfo.ppEnabledExtensionNames = Extensions;
 	DeviceCreateInfo.enabledExtensionCount = ARRAY_SIZE(Extensions);
 
-	// we need to enable this in order to get bindless support (which I plan to use as default) 
-	VkPhysicalDeviceBufferDeviceAddressFeatures BDAFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
-	BDAFeatures.bufferDeviceAddress = VK_TRUE; 
+	VkPhysicalDeviceVulkan12Features features12{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+	features12.runtimeDescriptorArray = VK_TRUE;               
+	features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE; 
+	features12.descriptorBindingPartiallyBound = VK_TRUE;
+	features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+    
+	features12.bufferDeviceAddress = VK_TRUE; 
+	features12.pNext = nullptr; 
 
-	// We do not want to deal with renderpasses nor framebuffers
 	VkPhysicalDeviceDynamicRenderingFeatures DynamicRenderingFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
 	DynamicRenderingFeatures.dynamicRendering = VK_TRUE;
-	DynamicRenderingFeatures.pNext = &BDAFeatures;
-	
-	//DeviceCreateInfo.enabledExtensionCount;
-	//DeviceCreateInfo.ppEnabledExtensionNames;
-	//DeviceCreateInfo.pEnabledFeatures;
-	
-	DeviceCreateInfo.pNext = &DynamicRenderingFeatures;
+	DynamicRenderingFeatures.pNext = &features12;
+
+	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+	features2.features.shaderInt64 = VK_TRUE; 
+	features2.pNext = &DynamicRenderingFeatures; 
+
+	DeviceCreateInfo.pNext = &features2;
 
 	VK_CHECK(vkCreateDevice(PhysicalDevice, &DeviceCreateInfo, nullptr, &Device));
 }
@@ -987,45 +1150,24 @@ void EngineInstance::createBuffer(Buffer& outBuffer, uint32_t size, VkBufferUsag
 			Buffer stagingBuffer;
 			createPersistentlyMappedBuffer(stagingBuffer, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 			memcpy(stagingBuffer.data, data, size);
-			copyBuffer(stagingBuffer.buffer, outBuffer.buffer, size);
+
+			VkCommandPool tempPool = CreateCommandPool();
+			copyBuffer(stagingBuffer.buffer, outBuffer.buffer, size, tempPool);
 			DestroyBuffer(stagingBuffer);
 		}
 	}
 }
 
-void EngineInstance::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+
+void EngineInstance::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool)
 {
-	VkCommandPool tempPool = CreateCommandPool();
+	VkCommandBuffer cmd = beginImmediateCommandBuffer(commandPool);
 
-	VkCommandBufferAllocateInfo AllocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-	AllocateInfo.commandPool = tempPool;
-	AllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	AllocateInfo.commandBufferCount = 1;
+	VkBufferCopy copyRegion{};
+	copyRegion.size = size;
+	vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, &copyRegion);
 
-	VkCommandBuffer CommandBuffer;
-	VK_CHECK(vkAllocateCommandBuffers(Device, &AllocateInfo, &CommandBuffer));
-
-	VkCommandBufferBeginInfo BeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-	BeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	VK_CHECK(vkBeginCommandBuffer(CommandBuffer, &BeginInfo));
-
-	VkBufferCopy CopyRegion = {};
-	CopyRegion.size = size;
-	vkCmdCopyBuffer(CommandBuffer, srcBuffer, dstBuffer, 1, &CopyRegion);
-
-	VK_CHECK(vkEndCommandBuffer(CommandBuffer));
-
-	VkSubmitInfo SubmitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	SubmitInfo.commandBufferCount = 1;
-	SubmitInfo.pCommandBuffers = &CommandBuffer;
-
-	VkQueue Queue;
-	vkGetDeviceQueue(Device, FamilyIndex, 0, &Queue);
-	VK_CHECK(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
-	VK_CHECK(vkQueueWaitIdle(Queue));
-
-	vkFreeCommandBuffers(Device, tempPool, 1, &CommandBuffer);
-	vkDestroyCommandPool(Device, tempPool, nullptr);
+	endImmediateCommandBuffer(cmd, commandPool);
 }
 
 
