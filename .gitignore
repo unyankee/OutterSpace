@@ -48,3 +48,6 @@ cmake-build-*/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+#anything can be got from the setup bat file
+stb/
