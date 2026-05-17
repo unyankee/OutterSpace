@@ -10,6 +10,8 @@
 #include <GLFW/glfw3native.h>
 
 #include <extern/meshoptimizer/extern/fast_obj.h>
+
+#include "meshoptimizer.h"
 #include "Common/Common.h"
 #include "src/PipelineManager.h"
 #include "src/Camera.h"
@@ -40,77 +42,96 @@ struct GpuCameraData {
 	Mat4 proj;
 };
 
+
 bool loadMesh(Mesh& outMesh, const char* path)
 {
-	if (!path)
-	{
-		return false;
-	}
+    if (!path) return false;
 
-	std::string fullPath = std::string(ENGINE_PROJECT_ROOT) + "/" + path;
-	fastObjMesh* mesh = fast_obj_read(fullPath.c_str());
-	if (!mesh)
-	{
-		printf("Error: Could not find mesh at %s\n", fullPath.c_str());
-		return false;
-	}
+    std::string fullPath = std::string(ENGINE_PROJECT_ROOT) + "/" + path;
+    fastObjMesh* mesh = fast_obj_read(fullPath.c_str());
+    if (!mesh)
+    {
+       printf("Error: Could not find mesh at %s\n", fullPath.c_str());
+       return false;
+    }
 
-	outMesh.vertices.resize(mesh->index_count);
-	outMesh.indices.resize(mesh->index_count);
+    outMesh.vertices.clear();
+    outMesh.indices.clear();
 
-	for (unsigned int ii = 0; ii < mesh->group_count; ii++)
-	{
-		const fastObjGroup& grp = mesh->groups[ii];
+    std::vector<Vertex> unrolledVertices;
+    unrolledVertices.reserve(mesh->face_count * 3); // Pre-allocate memory estimate
 
-		int idx = 0;
-		for (unsigned int jj = 0; jj < grp.face_count; jj++)
-		{
-			unsigned int fv = mesh->face_vertices[grp.face_offset + jj];
+    unsigned int globalIndexCursor = 0;
 
-			for (unsigned int kk = 0; kk < fv; kk++)
-			{
-				fastObjIndex mi = mesh->indices[grp.index_offset + idx];
+    for (unsigned int faceIdx = 0; faceIdx < mesh->face_count; ++faceIdx)
+    {
+        unsigned int fv = mesh->face_vertices[faceIdx];
 
-				Vertex& vertexData = outMesh.vertices[idx];
+        std::vector<Vertex> faceVertices;
+        faceVertices.reserve(fv);
 
-				if (mi.p)
-				{
-					vertexData.vx = mesh->positions[3 * mi.p + 0];
-					vertexData.vy = mesh->positions[3 * mi.p + 1];
-					vertexData.vz = mesh->positions[3 * mi.p + 2];
-				}
+        for (unsigned int vIdx = 0; vIdx < fv; ++vIdx)
+        {
+            fastObjIndex mi = mesh->indices[globalIndexCursor + vIdx];
 
-				if (mi.t)
-				{
-					vertexData.tu = mesh->texcoords[2 * mi.t + 0];
-					vertexData.tv = mesh->texcoords[2 * mi.t + 1];
-				}
+            Vertex v{};
+            if (mi.p)
+            {
+                v.vx = mesh->positions[3 * mi.p + 0];
+                v.vy = mesh->positions[3 * mi.p + 1];
+                v.vz = mesh->positions[3 * mi.p + 2];
+            }
+            if (mi.t)
+            {
+                v.tu = mesh->texcoords[2 * mi.t + 0];
+                v.tv = mesh->texcoords[2 * mi.t + 1];
+            }
+            if (mi.n)
+            {
+                v.nx = mesh->normals[3 * mi.n + 0];
+                v.ny = mesh->normals[3 * mi.n + 1];
+                v.nz = mesh->normals[3 * mi.n + 2];
+            }
 
-				if (mi.n)
-				{
-					vertexData.nx = mesh->normals[3 * mi.n + 0];
-					vertexData.ny = mesh->normals[3 * mi.n + 1];
-					vertexData.nz = mesh->normals[3 * mi.n + 2];
-				}
-				idx++;
-			}
-		}
-	}
+            faceVertices.push_back(v);
+        }
 
-	// TODO:
-	// Need to use meshoptimizer in here 
-	// instead of creating this massive index buffer which is not good.
-	// (need to reduce the amount of vertex data and create a proper index buffer)
-	for (uint32_t i = 0; i < mesh->index_count; ++i)
-	{
-		outMesh.indices[i] = i;
-	}
+        // Triangulate the face 
+        for (unsigned int kk = 1; kk < fv - 1; kk++)
+        {
+            unrolledVertices.push_back(faceVertices[0]);
+            unrolledVertices.push_back(faceVertices[kk + 1]);
+            unrolledVertices.push_back(faceVertices[kk]);
+        }
 
-	fast_obj_destroy(mesh);
+        globalIndexCursor += fv;
+    }
+	
+    size_t totalIndices = unrolledVertices.size();
+    std::vector<unsigned int> remap(totalIndices);
+	
+    size_t uniqueVertexCount = meshopt_generateVertexRemap(
+        remap.data(), 
+        nullptr, 
+        totalIndices, 
+        unrolledVertices.data(), 
+        totalIndices, 
+        sizeof(Vertex)
+    );
 
-	return true;
+    
+    outMesh.vertices.resize(uniqueVertexCount);
+    outMesh.indices.resize(totalIndices);
+
+    
+    meshopt_remapIndexBuffer(outMesh.indices.data(), nullptr, totalIndices, remap.data());
+    meshopt_remapVertexBuffer(outMesh.vertices.data(), unrolledVertices.data(), totalIndices, sizeof(Vertex), remap.data());
+
+    meshopt_optimizeVertexCache(outMesh.indices.data(), outMesh.indices.data(), totalIndices, uniqueVertexCount);
+
+    fast_obj_destroy(mesh);
+    return true;
 }
-
 
 
 struct Buffer
@@ -120,6 +141,13 @@ struct Buffer
 	VkDeviceAddress gpuAddress;
 	void* data;
 	uint32_t size;
+};
+
+struct RenderTarget
+{
+	VkImage image = VK_NULL_HANDLE;
+	VkImageView imageView = VK_NULL_HANDLE;
+	VkDeviceMemory memory = VK_NULL_HANDLE; 
 };
 
 
@@ -177,7 +205,8 @@ public:
 	//VkPipelineLayout MeshPipelineLayout;
 
 	Swapchain swapchain;
-
+	RenderTarget DepthTexture;
+	
 	VkPhysicalDeviceMemoryProperties PhysicalMemoryProperties;
 
 	VkDebugReportCallbackEXT DebugCallback;
@@ -211,6 +240,7 @@ public:
 	void GetSwapchainFormat();
 	//
 	void CreateSwapchain();
+	void CreateDepthTexture();
 	//
 	//void createRenderpass();
 	//
@@ -299,36 +329,68 @@ void EngineInstance::MainLoop()
 
 		// Main rendering loop for now
 		uint32_t ImageIndex = 0;
-		VK_CHECK(vkAcquireNextImageKHR(Device, swapchain.swapchain, ~0ull, AquireSemaphone, VK_NULL_HANDLE, &ImageIndex));
+		VK_CHECK(
+			vkAcquireNextImageKHR(Device, swapchain.swapchain, ~0ull, AquireSemaphone, VK_NULL_HANDLE, &ImageIndex));
 
 		VK_CHECK(vkResetCommandPool(Device, CommandPool, 0))
 
 
-			VkCommandBufferBeginInfo BeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+		VkCommandBufferBeginInfo BeginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 		BeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 
 		VK_CHECK(vkBeginCommandBuffer(CommandBuffer, &BeginInfo));
 
-		const VkImageMemoryBarrier RenderBeginBarrier = ImageBarrier(swapchain.images[ImageIndex], 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, 0, 0, 0, 1, &RenderBeginBarrier);
+		const VkImageMemoryBarrier ColorBarrier = ImageBarrier(
+			swapchain.images[ImageIndex],
+			0,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		);
+		const VkImageMemoryBarrier DepthBarrier = ImageBarrier(
+			DepthTexture.image,
+			0,
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		);
 
+		VkImageMemoryBarrier Barriers[] = {ColorBarrier, DepthBarrier};
 
-		constexpr VkClearColorValue ClearColorValue = { 27.0f / 255.0f, 3.0f / 255.0f, 3.0f / 255.0f, 1.0f };
-		VkClearValue ClearValue = { ClearColorValue };
+		vkCmdPipelineBarrier(
+			CommandBuffer,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+			VK_DEPENDENCY_BY_REGION_BIT,
+			0, nullptr,
+			0, nullptr,
+			2, Barriers
+		);
 
-        VkRenderingAttachmentInfo ColorAttachment = { VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
-        ColorAttachment.imageView = swapchain.imageviews[ImageIndex];
+		constexpr VkClearColorValue ClearColorValue = {27.0f / 255.0f, 3.0f / 255.0f, 3.0f / 255.0f, 1.0f};
+		VkClearValue ClearValue = {ClearColorValue};
+
+		VkRenderingAttachmentInfo ColorAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+		ColorAttachment.imageView = swapchain.imageviews[ImageIndex];
         ColorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         ColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         ColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         ColorAttachment.clearValue = ClearValue;
+
+		VkRenderingAttachmentInfo DepthAttachment = { VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+        DepthAttachment.imageView = DepthTexture.imageView;
+        DepthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        DepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        DepthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        DepthAttachment.clearValue = ClearValue;
 
         VkRenderingInfo RenderingInfo = { VK_STRUCTURE_TYPE_RENDERING_INFO };
         RenderingInfo.renderArea.extent = { swapchain.width, swapchain.height };
         RenderingInfo.layerCount = 1;
         RenderingInfo.colorAttachmentCount = 1;
         RenderingInfo.pColorAttachments = &ColorAttachment;
+		RenderingInfo.pDepthAttachment = &DepthAttachment;
 
         vkCmdBeginRendering(CommandBuffer, &RenderingInfo);
 
@@ -348,9 +410,24 @@ void EngineInstance::MainLoop()
 
 		vkCmdEndRendering(CommandBuffer);
 
-		const VkImageMemoryBarrier RenderEndBarrier = ImageBarrier(swapchain.images[ImageIndex], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-		vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, 0, 0, 0, 1, &RenderEndBarrier);
+		const VkImageMemoryBarrier RenderEndBarrier = ImageBarrier(
+			swapchain.images[ImageIndex], 
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 
+			0, 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+		);
 
+		vkCmdPipelineBarrier(
+			CommandBuffer, 
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
+			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,          
+			VK_DEPENDENCY_BY_REGION_BIT, 
+			0, nullptr, 
+			0, nullptr, 
+			1, &RenderEndBarrier
+		);
+		
 		//vkCmdClearColorImage(CommandBuffer, SwapchainImages[ImageIndex], VK_IMAGE_LAYOUT_GENERAL, &ClearColorValue, 1, &ImageSubresourceRamge);
 
 		VK_CHECK(vkEndCommandBuffer(CommandBuffer));
@@ -484,6 +561,7 @@ void EngineInstance::InitInstance()
 	GetSwapchainFormat();
 	//GetOrCreateSwapchainImages();
 	CreateSwapchain();
+	
 	//createImageView();
 	//createFramebuffer();
 }
@@ -606,6 +684,66 @@ void EngineInstance::GetSwapchainFormat()
 	surfaceFormat = SupportedFormats[Candidate];
 }
 
+void EngineInstance::CreateDepthTexture()
+{
+	if (DepthTexture.imageView != VK_NULL_HANDLE)
+	{
+		vkDestroyImageView(Device, DepthTexture.imageView, nullptr);
+	}
+	if (DepthTexture.image != VK_NULL_HANDLE)
+	{
+		vkDestroyImage(Device, DepthTexture.image, nullptr);
+	}
+	if (DepthTexture.memory != VK_NULL_HANDLE)
+	{
+		vkFreeMemory(Device, DepthTexture.memory, nullptr);
+	}
+
+	VkFormat depthFormat = VK_FORMAT_D32_SFLOAT; 
+
+    VkImageCreateInfo imageInfo{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = swapchain.width;
+    imageInfo.extent.height = swapchain.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = depthFormat;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    
+    imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VK_CHECK(vkCreateImage(Device, &imageInfo, nullptr, &DepthTexture.image));
+
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(Device, DepthTexture.image, &memReqs);
+
+    uint32_t memoryTypeIndex = selectMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+    allocInfo.allocationSize = memReqs.size;
+    allocInfo.memoryTypeIndex = memoryTypeIndex;
+
+    VK_CHECK(vkAllocateMemory(Device, &allocInfo, nullptr, &DepthTexture.memory));
+    VK_CHECK(vkBindImageMemory(Device, DepthTexture.image, DepthTexture.memory, 0));
+
+    VkImageViewCreateInfo viewInfo{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+    viewInfo.image = DepthTexture.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = depthFormat;
+    
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; 
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    VK_CHECK(vkCreateImageView(Device, &viewInfo, nullptr, &DepthTexture.imageView));
+}
+
 void EngineInstance::CreateSwapchain()
 {
 	// TODO: Needed for recreating it? 
@@ -721,6 +859,10 @@ void EngineInstance::CreateSwapchain()
 	swapchain.width = Width;
 	swapchain.height = Heigh;
 
+	// Right now, since this is the same as the swapchain for testing, need to keep them paired,
+	// will move fast to blitting the result to the swapchain so I can detach them
+	CreateDepthTexture();
+	
 	VK_CHECK(vkDeviceWaitIdle(Device));
 }
 
@@ -969,7 +1111,7 @@ VkImageMemoryBarrier EngineInstance::ImageBarrier(VkImage Image, VkAccessFlags s
 	Result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	Result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	Result.image = Image;
-	Result.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	Result.subresourceRange.aspectMask = (dstAccessMask == VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	Result.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 	Result.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 

@@ -146,6 +146,8 @@ namespace ToyEngine
         VkPipelineRenderingCreateInfo PipelineRenderingCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
         PipelineRenderingCreateInfo.colorAttachmentCount = 1;
         PipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
+        PipelineRenderingCreateInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+        //PipelineRenderingCreateInfo.stencilAttachmentFormat = ;
 
         PipelineCreateIndo.pNext = &PipelineRenderingCreateInfo;
 
