@@ -17,6 +17,7 @@ namespace ToyEngine
         VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
         bool depthTest = true;
         bool depthWrite = true;
+        bool blending = false;
         VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS;
     };
 
@@ -24,6 +25,7 @@ namespace ToyEngine
     {
     public:
         void create(const GpuContext& ctx, const PipelineConfig& config, VkDescriptorSetLayout descriptorLayout);
+        void create(const GpuContext& ctx, const PipelineConfig& config, std::vector<VkDescriptorSetLayout> descriptorLayouts);
         void destroy(const GpuContext& ctx);
 
         void bind(VkCommandBuffer cmd) const;

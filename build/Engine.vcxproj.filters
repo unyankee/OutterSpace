@@ -20,6 +20,9 @@
     <Filter Include="Extern\meshoptimizer">
       <UniqueIdentifier>{C7F599AD-B384-2377-5CA3-37724811341D}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Extern\imgui">
+      <UniqueIdentifier>{5257ADFE-3EBA-3CA3-E73F-7559D3810826}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Extern\glfw">
       <UniqueIdentifier>{A780780F-1336-F104-9C2A-EBDB08DFE708}</UniqueIdentifier>
     </Filter>
@@ -29,6 +32,9 @@
       <Filter>Source\src</Filter>
     </ClInclude>
     <ClInclude Include="..\Engine\src\Camera.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Engine\src\EditorLayer.h">
       <Filter>Source\src</Filter>
     </ClInclude>
     <ClInclude Include="..\Engine\src\GpuResources.h">
@@ -58,6 +64,9 @@
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="..\Engine\src\Camera.cpp">
+      <Filter>Source\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\EditorLayer.cpp">
       <Filter>Source\src</Filter>
     </ClCompile>
     <ClCompile Include="..\Engine\src\GpuResources.cpp">
@@ -125,6 +134,24 @@
     </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\tools\objloader.cpp">
       <Filter>Extern\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui.cpp">
+      <Filter>Extern\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_demo.cpp">
+      <Filter>Extern\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_draw.cpp">
+      <Filter>Extern\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_impl_glfw.cpp">
+      <Filter>Extern\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_tables.cpp">
+      <Filter>Extern\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_widgets.cpp">
+      <Filter>Extern\imgui</Filter>
     </ClCompile>
     <ClCompile Include="..\extern\glfw\glfw-3.4\src\context.c">
       <Filter>Extern\glfw</Filter>

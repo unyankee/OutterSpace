@@ -25,6 +25,7 @@ project "Engine"
         "extern/meshoptimizer/src",
         "extern/volk",
         "extern/glfw/glfw-3.4/include",
+        "extern/imgui",
         "$(VULKAN_SDK)/include"
     }
 
@@ -50,6 +51,8 @@ project "Engine"
         "extern/meshoptimizer/src/**.cpp",
         "extern/meshoptimizer/src/**.h",
         "extern/meshoptimizer/tools/objloader.cpp",
+        -- ImGui Source Files
+        "extern/imgui/**.cpp",
         -- GLFW Source Files (Windows specific)
         "extern/glfw/glfw-3.4/src/context.c",
         "extern/glfw/glfw-3.4/src/egl_context.c",
@@ -79,6 +82,7 @@ project "Engine"
         ["Extern/volk"] = { "extern/volk/**" },
         ["Extern/meshoptimizer"] = { "extern/meshoptimizer/**" },
         ["Extern/glfw"] = { "extern/glfw/**" },
+        ["Extern/imgui"] = { "extern/imgui/**" },
     }
 
     links {

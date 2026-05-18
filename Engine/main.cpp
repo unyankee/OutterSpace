@@ -21,6 +21,8 @@
 #include "src/GpuResources.h"
 #include "src/Pipeline.h"
 #include "src/Actor.h"
+#include "src/EditorLayer.h"
+#include <imgui.h>
 
 
 const uint32_t StartupWidthResolution = 1920;
@@ -72,6 +74,7 @@ public:
 
     std::vector<Pipeline*> pipelines;
     std::vector<Actor*> actors;
+    EditorLayer editorLayer;
 
     void MainLoop();
     void InitInstance();
@@ -206,6 +209,8 @@ void EngineInstance::InitInstance()
     CreateSurface();
     GetSwapchainFormat();
     CreateSwapchain();
+
+    editorLayer.init(gpuContext, window, surfaceFormat.format);
 }
 
 void EngineInstance::SelectPhysicalDevice()
@@ -316,7 +321,7 @@ void EngineInstance::CreateSwapchain()
     SwapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     SwapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     SwapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-    SwapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    SwapchainCreateInfo.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
     SwapchainCreateInfo.oldSwapchain = swapchain.swapchain;
 
     VkSwapchainKHR LocalSwapchain;
@@ -416,6 +421,11 @@ void EngineInstance::MainLoop()
         float deltaTime = (float)(currentFrame - lastFrame);
         lastFrame = currentFrame;
         glfwPollEvents();
+
+        editorLayer.beginFrame();
+        ImGui::Begin("Engine Stats");
+        ImGui::Text("Delta Time: %.3f ms (%.1f FPS)", deltaTime * 1000.0f, 1.0f / deltaTime);
+        ImGui::End();
 
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
         {
@@ -539,6 +549,7 @@ void EngineInstance::MainLoop()
                 }
             }
         }
+        editorLayer.render(CommandBuffer, swapchain.width, swapchain.height);
         vkCmdEndRendering(CommandBuffer);
 
         VkImageMemoryBarrier presentBarrier = ImageBarrier(swapchain.images[ImageIndex],
@@ -563,9 +574,12 @@ void EngineInstance::MainLoop()
         vkQueuePresentKHR(gpuContext.graphicsQueue, &presentInfo);
     }
 
+    editorLayer.destroy(gpuContext);
+
     if (Device != VK_NULL_HANDLE) {
         vkDeviceWaitIdle(Device);
     }
+    // lots of validation layers due to not properly clearing vulkan resources, but... fine for now....
 }
 
 int main()

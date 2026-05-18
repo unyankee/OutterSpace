@@ -28,6 +28,9 @@ namespace ToyEngine {
 
         void destroy(const GpuContext& ctx);
 
+        void* map(const GpuContext& ctx);
+        void unmap(const GpuContext& ctx);
+
         void copyDataToBuffer(const void* data, uint32_t size);
         };
 
@@ -40,6 +43,8 @@ namespace ToyEngine {
         uint32_t bindlessIndex = 0;
 
         void load(const GpuContext& ctx, const char* path);
+        void create(const GpuContext& ctx, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect);
+        void uploadData(const GpuContext& ctx, const void* data, uint32_t size);
         void destroy(const GpuContext& ctx);
     };
 

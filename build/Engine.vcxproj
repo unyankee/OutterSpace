@@ -63,7 +63,7 @@
     <ClCompile>
       <AdditionalOptions>  %(AdditionalOptions)</AdditionalOptions>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;..\extern\imgui;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;ENGINE_PROJECT_ROOT=R&quot;(f:/ToyEngine/ToyEngine)&quot;;ENGINE_DIR=R&quot;(f:/ToyEngine/ToyEngine/Engine)&quot;;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -79,7 +79,7 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;ENGINE_PROJECT_ROOT=R\&quot;(f:/ToyEngine/ToyEngine)\&quot;;ENGINE_DIR=R\&quot;(f:/ToyEngine/ToyEngine/Engine)\&quot;;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;..\extern\imgui;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -97,7 +97,7 @@
     <ClCompile>
       <AdditionalOptions>  %(AdditionalOptions)</AdditionalOptions>
       <Optimization>MaxSpeed</Optimization>
-      <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;..\extern\imgui;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;ENGINE_PROJECT_ROOT=R&quot;(f:/ToyEngine/ToyEngine)&quot;;ENGINE_DIR=R&quot;(f:/ToyEngine/ToyEngine/Engine)&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
@@ -112,7 +112,7 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;ENGINE_PROJECT_ROOT=R\&quot;(f:/ToyEngine/ToyEngine)\&quot;;ENGINE_DIR=R\&quot;(f:/ToyEngine/ToyEngine/Engine)\&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;..\extern\imgui;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -130,6 +130,7 @@
   <ItemGroup>
     <ClInclude Include="..\Engine\src\Actor.h" />
     <ClInclude Include="..\Engine\src\Camera.h" />
+    <ClInclude Include="..\Engine\src\EditorLayer.h" />
     <ClInclude Include="..\Engine\src\GpuResources.h" />
     <ClInclude Include="..\Engine\src\Mesh.h" />
     <ClInclude Include="..\Engine\src\Pipeline.h" />
@@ -142,6 +143,8 @@
     <ClCompile Include="..\Engine\main.cpp">
     </ClCompile>
     <ClCompile Include="..\Engine\src\Camera.cpp">
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\EditorLayer.cpp">
     </ClCompile>
     <ClCompile Include="..\Engine\src\GpuResources.cpp">
     </ClCompile>
@@ -186,6 +189,18 @@
     <ClCompile Include="..\extern\meshoptimizer\src\vfetchoptimizer.cpp">
     </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\tools\objloader.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_demo.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_draw.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_impl_glfw.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_tables.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\imgui\imgui_widgets.cpp">
     </ClCompile>
     <ClCompile Include="..\extern\glfw\glfw-3.4\src\context.c">
     </ClCompile>

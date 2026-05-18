@@ -7,14 +7,19 @@ namespace ToyEngine
 {
     void Pipeline::create(const GpuContext& ctx, const PipelineConfig& config, VkDescriptorSetLayout descriptorLayout)
     {
+        create(ctx, config, std::vector<VkDescriptorSetLayout>{descriptorLayout});
+    }
+
+    void Pipeline::create(const GpuContext& ctx, const PipelineConfig& config, std::vector<VkDescriptorSetLayout> descriptorLayouts)
+    {
         VkPushConstantRange pushConstantRange{};
         pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
         pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(DefaultPipelineLayout);
+        pushConstantRange.size = 128; 
 
         VkPipelineLayoutCreateInfo layoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-        layoutInfo.setLayoutCount = (descriptorLayout != VK_NULL_HANDLE) ? 1 : 0;
-        layoutInfo.pSetLayouts = &descriptorLayout;
+        layoutInfo.setLayoutCount = (uint32_t)descriptorLayouts.size();
+        layoutInfo.pSetLayouts = descriptorLayouts.data();
         layoutInfo.pushConstantRangeCount = 1;
         layoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -32,6 +37,35 @@ namespace ToyEngine
         shaderStages[1].pName = "main";
 
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+
+        VkVertexInputBindingDescription bindingDesc = {};
+        bindingDesc.binding = 0;
+        bindingDesc.stride = 20; // ImDrawVert: pos(8) + uv(8) + col(4)
+        bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        VkVertexInputAttributeDescription attrDesc[3] = {};
+        attrDesc[0].location = 0;
+        attrDesc[0].binding = 0;
+        attrDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attrDesc[0].offset = 0;
+
+        attrDesc[1].location = 1;
+        attrDesc[1].binding = 0;
+        attrDesc[1].format = VK_FORMAT_R32G32_SFLOAT;
+        attrDesc[1].offset = 8;
+
+        attrDesc[2].location = 2;
+        attrDesc[2].binding = 0;
+        attrDesc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attrDesc[2].offset = 16;
+
+        if (config.blending)
+        {
+            vertexInputInfo.vertexBindingDescriptionCount = 1;
+            vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
+            vertexInputInfo.vertexAttributeDescriptionCount = 3;
+            vertexInputInfo.pVertexAttributeDescriptions = attrDesc;
+        }
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{
             VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO
@@ -65,7 +99,21 @@ namespace ToyEngine
         VkPipelineColorBlendAttachmentState colorBlendAttachment{};
         colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachment.blendEnable = VK_FALSE;
+        
+        if (config.blending)
+        {
+            colorBlendAttachment.blendEnable = VK_TRUE;
+            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+        }
+        else
+        {
+            colorBlendAttachment.blendEnable = VK_FALSE;
+        }
 
         VkPipelineColorBlendStateCreateInfo colorBlending{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
         colorBlending.logicOpEnable = VK_FALSE;
