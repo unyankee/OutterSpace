@@ -25,7 +25,19 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Engine\src\Actor.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
     <ClInclude Include="..\Engine\src\Camera.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Engine\src\GpuResources.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Engine\src\Mesh.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Engine\src\Pipeline.h">
       <Filter>Source\src</Filter>
     </ClInclude>
     <ClInclude Include="..\Engine\src\PipelineManager.h">
@@ -46,6 +58,15 @@
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="..\Engine\src\Camera.cpp">
+      <Filter>Source\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\GpuResources.cpp">
+      <Filter>Source\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\Mesh.cpp">
+      <Filter>Source\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\Pipeline.cpp">
       <Filter>Source\src</Filter>
     </ClCompile>
     <ClCompile Include="..\Engine\src\PipelineManager.cpp">

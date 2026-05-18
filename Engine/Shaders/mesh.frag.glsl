@@ -1,6 +1,9 @@
-#version 450
+#version 460
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require 
 #extension GL_ARB_gpu_shader_int64 : require    
+
+#include "common.glsl"
 
 layout(location = 0) in vec2 inUV;
 layout(location = 1) in vec3 inNormal;
@@ -9,14 +12,6 @@ layout(set = 0, binding = 0) uniform texture2D globalTextures[];
 layout(set = 0, binding = 1) uniform sampler globalSamplers[];
 
 layout(location = 0) out vec4 outColor;
-
-layout(push_constant) uniform Constants 
-{
-    uint64_t vertexBufferAddress; 
-    uint64_t cameraBufferAddress; 
-    uint textureIndex;            
-    uint samplerIndex;           
-} push;
 
 void main()
 {

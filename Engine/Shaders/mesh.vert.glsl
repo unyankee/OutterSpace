@@ -1,6 +1,8 @@
-#version 450
+#version 460
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_buffer_reference : require
 
+#include "common.glsl"
 
 struct Vertex
 {
@@ -24,29 +26,19 @@ layout(buffer_reference, std430) readonly buffer CameraBufferPtr
     CameraData camera;
 };
 
-// move this to a common shared shader file, so avoid re declaring it etc...
-layout(push_constant) uniform Constants 
-{
-    VertexBufferPtr vertexBufferAddress; 
-    CameraBufferPtr cameraBufferAddress;
-    uint textureIndex;
-    uint samplerIndex;
-} push;
-
-
 layout(location = 0) out vec2 outUV;
 layout(location = 1) out vec3 outNormal;
 
 void main()
 {
 	// Get the vertex data
-    Vertex vertex = push.vertexBufferAddress.vertices[gl_VertexIndex];
+    Vertex vertex = VertexBufferPtr(push.vertexBufferAddress).vertices[gl_VertexIndex];
     
     vec3 position = vec3(vertex.vx, vertex.vy, vertex.vz);
     vec3 normal = vec3(vertex.nx, vertex.ny, vertex.nz);
     vec2 texCoord = vec2(vertex.tu, vertex.tv);
 
-    CameraData cam = push.cameraBufferAddress.camera;
+    CameraData cam = CameraBufferPtr(push.cameraBufferAddress).camera;
 
     gl_Position = cam.proj * cam.view * vec4(position, 1.0);
 

@@ -128,7 +128,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\Engine\src\Actor.h" />
     <ClInclude Include="..\Engine\src\Camera.h" />
+    <ClInclude Include="..\Engine\src\GpuResources.h" />
+    <ClInclude Include="..\Engine\src\Mesh.h" />
+    <ClInclude Include="..\Engine\src\Pipeline.h" />
     <ClInclude Include="..\Engine\src\PipelineManager.h" />
     <ClInclude Include="..\Engine\Common\Common.h" />
     <ClInclude Include="..\extern\volk\volk.h" />
@@ -138,6 +142,12 @@
     <ClCompile Include="..\Engine\main.cpp">
     </ClCompile>
     <ClCompile Include="..\Engine\src\Camera.cpp">
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\GpuResources.cpp">
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\Mesh.cpp">
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\Pipeline.cpp">
     </ClCompile>
     <ClCompile Include="..\Engine\src\PipelineManager.cpp">
     </ClCompile>

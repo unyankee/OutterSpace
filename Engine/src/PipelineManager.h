@@ -1,41 +1,26 @@
 #pragma once
 
-#include "Common/Common.h"
+#include <volk.h>
 #include <vector>
+#include "GpuResources.h"
 
 namespace ToyEngine {
 
-
-    struct PipelineDefinition
-    {
-        VkPipeline Pipeline;
-        VkPipelineLayout PipelineLayout;
-    };
-    
-    
     class PipelineManager {
     public:
-        //PipelineManager(VkDevice device);
-        //~PipelineManager();
-
         void init(VkDevice device);
         void cleanup();
 
         void setupGlobalDescriptorSet();
-        void AddTextureToGlobalDescriptorSet(TextureResource& texture);
+        void AddTextureToGlobalDescriptorSet(Texture& texture);
         
-        VkPipelineLayout CreateDefaultPipelineLayout();
-        void createMeshPipeline(VkShaderModule vs, VkShaderModule fs, VkFormat colorFormat);
+        VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return globalBindlessLayout; }
+        VkDescriptorSet getGlobalDescriptorSet() { return globalBindlessDescriptorSet; }
 
-        // remove, needs to update to dynamic so I can remove the render pass from places it should not be, like swapchain
-        PipelineDefinition TmpPipeline;
-
-        // should not be here... but need it for tmp testing
-        // once working will be refactored to the right new class
         VkDescriptorSetLayout globalBindlessLayout = VK_NULL_HANDLE;
-        VkDescriptorSet globalBindlessDescriptorSet;
-        VkDescriptorPool bindlessPool;
-        VkPipelineLayout PipelineLayout;
+        VkDescriptorSet globalBindlessDescriptorSet = VK_NULL_HANDLE;
+        VkDescriptorPool bindlessPool = VK_NULL_HANDLE;
+
     private:
         VkDevice m_device;
         uint32_t m_textureCount = 0;
