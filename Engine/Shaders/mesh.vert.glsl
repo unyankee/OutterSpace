@@ -24,12 +24,15 @@ layout(buffer_reference, std430) readonly buffer CameraBufferPtr
     CameraData camera;
 };
 
+// move this to a common shared shader file, so avoid re declaring it etc...
 layout(push_constant) uniform Constants 
 {
     VertexBufferPtr vertexBufferAddress; 
     CameraBufferPtr cameraBufferAddress;
     uint textureIndex;
+    uint samplerIndex;
 } push;
+
 
 layout(location = 0) out vec2 outUV;
 layout(location = 1) out vec3 outNormal;

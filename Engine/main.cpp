@@ -443,9 +443,61 @@ void EngineInstance::MainLoop()
 	createBuffer(vb, static_cast<uint32_t>(testMesh.vertices.size() * sizeof(Vertex)), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.vertices.data());
 	createBuffer(ib, static_cast<uint32_t>(testMesh.indices.size() * sizeof(uint32_t)), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, testMesh.indices.data());
 
+	double lastFrame = glfwGetTime();
+	double lastX = 0, lastY = 0;
+	bool firstMouse = true;
+
 	while (!glfwWindowShouldClose(window))
 	{
+		double currentFrame = glfwGetTime();
+		float deltaTime = static_cast<float>(currentFrame - lastFrame);
+		lastFrame = currentFrame;
+
 		glfwPollEvents();
+
+		// Handle Input
+		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+			double xpos, ypos;
+			glfwGetCursorPos(window, &xpos, &ypos);
+
+			if (firstMouse)
+			{
+				lastX = xpos;
+				lastY = ypos;
+				firstMouse = false;
+			}
+
+			float xoffset = static_cast<float>(xpos - lastX);
+			float yoffset = static_cast<float>(lastY - ypos); // reversed since y-coordinates go from bottom to top
+
+			lastX = xpos;
+			lastY = ypos;
+
+			camera.processMouseMovement(xoffset, yoffset);
+
+			// Keyboard movement
+			if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+				camera.processKeyboard(FORWARD, deltaTime);
+			if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+				camera.processKeyboard(BACKWARD, deltaTime);
+			if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+				camera.processKeyboard(LEFT, deltaTime);
+			if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+				camera.processKeyboard(RIGHT, deltaTime);
+			if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+				camera.processKeyboard(UP, deltaTime);
+			if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+				camera.processKeyboard(DOWN, deltaTime);
+		}
+		else
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			firstMouse = true;
+		}
+
 
 		{
 			// Resizing

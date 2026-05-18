@@ -101,10 +101,7 @@ namespace ToyEngine
 
     VkPipelineLayout PipelineManager::CreateDefaultPipelineLayout()
     {
-        
         assert(m_device != VK_NULL_HANDLE);
-
-        
         {
             // global textures 
             VkDescriptorSetLayoutBinding bindings[2] = {};
@@ -218,6 +215,7 @@ namespace ToyEngine
         };
         RasterizationStateCreateInfo.lineWidth = 1.0f;
         RasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+        RasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
         PipelineCreateIndo.pRasterizationState = &RasterizationStateCreateInfo;
 
         VkPipelineMultisampleStateCreateInfo MultisampleStateCreateInfo = {

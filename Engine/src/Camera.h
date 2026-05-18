@@ -10,6 +10,15 @@ namespace ToyEngine {
         float m[4][4];
     };
 
+    enum CameraMovement {
+        FORWARD,
+        BACKWARD,
+        LEFT,
+        RIGHT,
+        UP,
+        DOWN
+    };
+
     class Camera {
     public:
         Camera();
@@ -23,14 +32,28 @@ namespace ToyEngine {
 
         void update();
 
+        void processKeyboard(CameraMovement direction, float deltaTime);
+        void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
+
     private:
         Vec3 m_position;
-        Vec3 m_target;
+        Vec3 m_front;
         Vec3 m_up;
+        Vec3 m_right;
+        Vec3 m_worldUp;
+
+        // Euler Angles
+        float m_yaw;
+        float m_pitch;
+
+        // Camera options
+        float m_movementSpeed;
+        float m_mouseSensitivity;
 
         Mat4 m_viewMatrix;
         Mat4 m_projMatrix;
 
+        void updateCameraVectors();
         void updateViewMatrix();
     };
 
