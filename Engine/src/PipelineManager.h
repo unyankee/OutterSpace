@@ -2,24 +2,36 @@
 
 #include <volk.h>
 #include <vector>
+
 #include "GpuResources.h"
 
-namespace ToyEngine {
+namespace ToyEngine
+{
 
-    class PipelineManager {
+    class PipelineManager
+    {
     public:
         void init(VkDevice device);
+
         void cleanup();
 
         void setupGlobalDescriptorSet();
-        void AddTextureToGlobalDescriptorSet(Texture& texture);
-        
-        VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return globalBindlessLayout; }
-        VkDescriptorSet getGlobalDescriptorSet() { return globalBindlessDescriptorSet; }
 
-        VkDescriptorSetLayout globalBindlessLayout = VK_NULL_HANDLE;
-        VkDescriptorSet globalBindlessDescriptorSet = VK_NULL_HANDLE;
-        VkDescriptorPool bindlessPool = VK_NULL_HANDLE;
+        void AddTextureToGlobalDescriptorSet(Texture& texture);
+
+        VkDescriptorSetLayout getGlobalDescriptorSetLayout()
+        {
+            return m_globalBindlessLayout;
+        }
+
+        VkDescriptorSet getGlobalDescriptorSet()
+        {
+            return m_globalBindlessDescriptorSet;
+        }
+
+        VkDescriptorSetLayout m_globalBindlessLayout = VK_NULL_HANDLE;
+        VkDescriptorSet m_globalBindlessDescriptorSet = VK_NULL_HANDLE;
+        VkDescriptorPool m_bindlessPool = VK_NULL_HANDLE;
 
     private:
         VkDevice m_device;

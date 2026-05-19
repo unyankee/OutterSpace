@@ -1,16 +1,22 @@
 #pragma once
 
-namespace ToyEngine {
+namespace ToyEngine
+{
 
-    struct Vec3 {
-        float x, y, z;
+    struct Vec3
+    {
+        float m_x;
+        float m_y;
+        float m_z;
     };
 
-    struct Mat4 {
-        float m[4][4];
+    struct Mat4
+    {
+        float m_m[4][4];
     };
 
-    enum CameraMovement {
+    enum CameraMovement
+    {
         FORWARD,
         BACKWARD,
         LEFT,
@@ -19,20 +25,31 @@ namespace ToyEngine {
         DOWN
     };
 
-    class Camera {
+    class Camera
+    {
     public:
         Camera();
-        
+
         void setPosition(Vec3 position);
+
         void setTarget(Vec3 target);
+
         void setPerspective(float fovDeg, float aspect, float nearZ, float farZ);
-        
-        const Mat4& getViewMatrix() const { return m_viewMatrix; }
-        const Mat4& getProjectionMatrix() const { return m_projMatrix; }
+
+        const Mat4& getViewMatrix() const
+        {
+            return m_viewMatrix;
+        }
+
+        const Mat4& getProjectionMatrix() const
+        {
+            return m_projMatrix;
+        }
 
         void update();
 
         void processKeyboard(CameraMovement direction, float deltaTime);
+
         void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
 
     private:
@@ -54,6 +71,7 @@ namespace ToyEngine {
         Mat4 m_projMatrix;
 
         void updateCameraVectors();
+
         void updateViewMatrix();
     };
 

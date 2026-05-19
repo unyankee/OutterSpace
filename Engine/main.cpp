@@ -190,12 +190,12 @@ void EngineInstance::InitInstance()
     CreateDevice();
     volkLoadDevice(Device);
 
-    gpuContext.device = Device;
-    gpuContext.physicalDevice = PhysicalDevice;
-    gpuContext.memoryProperties = PhysicalMemoryProperties;
-    gpuContext.commandPool = CreateCommandPool();
-    vkGetDeviceQueue(Device, FamilyIndex, 0, &gpuContext.graphicsQueue);
-    gpuContext.graphicsFamilyIndex = FamilyIndex;
+    gpuContext.m_device = Device;
+    gpuContext.m_physicalDevice = PhysicalDevice;
+    gpuContext.m_memoryProperties = PhysicalMemoryProperties;
+    gpuContext.m_commandPool = CreateCommandPool();
+    vkGetDeviceQueue(Device, FamilyIndex, 0, &gpuContext.m_graphicsQueue);
+    gpuContext.m_graphicsFamilyIndex = FamilyIndex;
 
     pipeline_manager.init(Device);
 
@@ -387,9 +387,9 @@ void EngineInstance::MainLoop()
 
     Pipeline* mainPipeline = new Pipeline();
     PipelineConfig config{};
-    config.vertexShader = MeshVs;
-    config.fragmentShader = MeshFs;
-    config.colorFormat = surfaceFormat.format;
+    config.m_vertexShader = MeshVs;
+    config.m_fragmentShader = MeshFs;
+    config.m_colorFormat = surfaceFormat.format;
     mainPipeline->create(gpuContext, config, pipeline_manager.getGlobalDescriptorSetLayout());
     
     pipelines.push_back(mainPipeline);
@@ -402,13 +402,13 @@ void EngineInstance::MainLoop()
     pipeline_manager.AddTextureToGlobalDescriptorSet(texture);
 
     Buffer vb, ib;
-    vb.create(gpuContext, (uint32_t)(testMesh->vertices.size() * sizeof(Vertex)),
+    vb.create(gpuContext, (uint32_t)(testMesh->m_vertices.size() * sizeof(Vertex)),
               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->vertices.data());
+              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_vertices.data());
     
-    ib.create(gpuContext, (uint32_t)(testMesh->indices.size() * sizeof(uint32_t)),
+    ib.create(gpuContext, (uint32_t)(testMesh->m_indices.size() * sizeof(uint32_t)),
               VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->indices.data());
+              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_indices.data());
 
     Actor* dragonActor = new Actor(testMesh);
     dragonActor->registerPipeline(mainPipeline);
@@ -497,7 +497,7 @@ void EngineInstance::MainLoop()
         VkImageMemoryBarrier barriers[] = {
             ImageBarrier(swapchain.images[ImageIndex], 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
-            ImageBarrier(DepthTexture.image, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+            ImageBarrier(DepthTexture.m_image, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
         };
         vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -511,7 +511,7 @@ void EngineInstance::MainLoop()
         };
         colorAttachment.clearValue.color = {0.1f, 0.01f, 0.01f, 1.0f};
         VkRenderingAttachmentInfo depthAttachment = {
-            VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, DepthTexture.view,
+            VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, DepthTexture.m_view,
             VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_RESOLVE_MODE_NONE, VK_NULL_HANDLE,
             VK_IMAGE_LAYOUT_UNDEFINED, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE
         };
@@ -540,12 +540,12 @@ void EngineInstance::MainLoop()
                 if (actor->hasPipeline(pipeline))
                 {
                     // Using pointer buffers to write the gpu address of the needed buffers / also pushing the texture + sampler needed
-                    DefaultPipelineLayout push = {vb.gpuAddress, camera_buffer.gpuAddress, texture.bindlessIndex, 0};
+                    DefaultPipelineLayout push = {vb.m_gpuAddress, camera_buffer.m_gpuAddress, texture.m_bindlessIndex, 0};
                     vkCmdPushConstants(CommandBuffer, pipeline->getLayout(),
                                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push),
                                        &push);
-                    vkCmdBindIndexBuffer(CommandBuffer, ib.buffer, 0, VK_INDEX_TYPE_UINT32);
-                    vkCmdDrawIndexed(CommandBuffer, (uint32_t)actor->getMesh()->indices.size(), 1, 0, 0, 0);
+                    vkCmdBindIndexBuffer(CommandBuffer, ib.m_buffer, 0, VK_INDEX_TYPE_UINT32);
+                    vkCmdDrawIndexed(CommandBuffer, (uint32_t)actor->getMesh()->m_indices.size(), 1, 0, 0, 0);
                 }
             }
         }
@@ -566,12 +566,12 @@ void EngineInstance::MainLoop()
             VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr, 1, &AquireSemaphone, &waitStage, 1, &CommandBuffer, 1,
             &submitSemaphore
         };
-        vkQueueSubmit(gpuContext.graphicsQueue, 1, &submitInfo, renderFence);
+        vkQueueSubmit(gpuContext.m_graphicsQueue, 1, &submitInfo, renderFence);
         
         VkPresentInfoKHR presentInfo = {
             VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, nullptr, 1, &submitSemaphore, 1, &swapchain.swapchain, &ImageIndex
         };
-        vkQueuePresentKHR(gpuContext.graphicsQueue, &presentInfo);
+        vkQueuePresentKHR(gpuContext.m_graphicsQueue, &presentInfo);
     }
 
     editorLayer.destroy(gpuContext);

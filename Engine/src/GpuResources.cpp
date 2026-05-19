@@ -7,146 +7,180 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <extern/stb/stb_image.h>
 
-namespace ToyEngine {
+namespace ToyEngine
+{
 
-    uint32_t GpuContext::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
-        for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) && (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+    uint32_t GpuContext::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
+    {
+        for (uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; i++)
+        {
+            if ((typeFilter & (1 << i)) && (m_memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            {
                 return i;
             }
         }
         throw std::runtime_error("failed to find suitable memory type!");
     }
 
-    void Buffer::create(const GpuContext& ctx, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const void* initialData) {
-        this->size = size;
+    void Buffer::create(const GpuContext& ctx, uint32_t size, VkBufferUsageFlags usage,
+                        VkMemoryPropertyFlags properties, const void* initialData)
+    {
+        m_size = size;
 
-        VkBufferCreateInfo bufferInfo{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        VkBufferCreateInfo bufferInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
         bufferInfo.size = size;
         bufferInfo.usage = usage;
-        if (initialData && !(properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
+
+        if (initialData && !(properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
+        {
             bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         }
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        VK_CHECK(vkCreateBuffer(ctx.device, &bufferInfo, nullptr, &buffer));
+        VK_CHECK(vkCreateBuffer(ctx.m_device, &bufferInfo, nullptr, &m_buffer));
 
         VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(ctx.device, buffer, &memRequirements);
+        vkGetBufferMemoryRequirements(ctx.m_device, m_buffer, &memRequirements);
 
-        VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+        VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
         allocInfo.allocationSize = memRequirements.size;
         allocInfo.memoryTypeIndex = ctx.findMemoryType(memRequirements.memoryTypeBits, properties);
 
-        VkMemoryAllocateFlagsInfo allocFlagsInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO };
-        if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+        VkMemoryAllocateFlagsInfo allocFlagsInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+        if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        {
             allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
             allocInfo.pNext = &allocFlagsInfo;
         }
 
-        VK_CHECK(vkAllocateMemory(ctx.device, &allocInfo, nullptr, &memory));
-        VK_CHECK(vkBindBufferMemory(ctx.device, buffer, memory, 0));
+        VK_CHECK(vkAllocateMemory(ctx.m_device, &allocInfo, nullptr, &m_memory));
+        VK_CHECK(vkBindBufferMemory(ctx.m_device, m_buffer, m_memory, 0));
 
-        if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
-            VkBufferDeviceAddressInfo addressInfo{ VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
-            addressInfo.buffer = buffer;
-            gpuAddress = vkGetBufferDeviceAddress(ctx.device, &addressInfo);
+        if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        {
+            VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
+            addressInfo.buffer = m_buffer;
+            m_gpuAddress = vkGetBufferDeviceAddress(ctx.m_device, &addressInfo);
         }
 
-        if (properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-            VK_CHECK(vkMapMemory(ctx.device, memory, 0, size, 0, &data));
-            if (initialData) {
-                memcpy(data, initialData, size);
+        if (properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+        {
+            VK_CHECK(vkMapMemory(ctx.m_device, m_memory, 0, size, 0, &m_data));
+            if (initialData)
+            {
+                memcpy(m_data, initialData, size);
             }
-        } else if (initialData) {
+        }
+        else if (initialData)
+        {
             Buffer staging;
-            staging.create(ctx, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, initialData);
+            staging.create(ctx, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, initialData);
 
-            VkCommandBufferAllocateInfo cbAllocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+            VkCommandBufferAllocateInfo cbAllocInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
             cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            cbAllocInfo.commandPool = ctx.commandPool;
+            cbAllocInfo.commandPool = ctx.m_commandPool;
             cbAllocInfo.commandBufferCount = 1;
 
             VkCommandBuffer cmd;
-            vkAllocateCommandBuffers(ctx.device, &cbAllocInfo, &cmd);
+            vkAllocateCommandBuffers(ctx.m_device, &cbAllocInfo, &cmd);
 
-            VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+            VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
             beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
             vkBeginCommandBuffer(cmd, &beginInfo);
 
             VkBufferCopy copyRegion{};
             copyRegion.size = size;
-            vkCmdCopyBuffer(cmd, staging.buffer, buffer, 1, &copyRegion);
+            vkCmdCopyBuffer(cmd, staging.m_buffer, m_buffer, 1, &copyRegion);
 
             vkEndCommandBuffer(cmd);
 
-            VkSubmitInfo submitInfo{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+            VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
             submitInfo.commandBufferCount = 1;
             submitInfo.pCommandBuffers = &cmd;
 
-            vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-            vkQueueWaitIdle(ctx.graphicsQueue);
+            vkQueueSubmit(ctx.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+            vkQueueWaitIdle(ctx.m_graphicsQueue);
 
-            vkFreeCommandBuffers(ctx.device, ctx.commandPool, 1, &cmd);
+            vkFreeCommandBuffers(ctx.m_device, ctx.m_commandPool, 1, &cmd);
             staging.destroy(ctx);
         }
     }
 
-    void Buffer::destroy(const GpuContext& ctx) {
-        if (data) {
-            vkUnmapMemory(ctx.device, memory);
-            data = nullptr;
+    void Buffer::destroy(const GpuContext& ctx)
+    {
+        if (m_data)
+        {
+            vkUnmapMemory(ctx.m_device, m_memory);
+            m_data = nullptr;
         }
-        if (buffer) {
-            vkDestroyBuffer(ctx.device, buffer, nullptr);
-            buffer = VK_NULL_HANDLE;
+
+        if (m_buffer)
+        {
+            vkDestroyBuffer(ctx.m_device, m_buffer, nullptr);
+            m_buffer = VK_NULL_HANDLE;
         }
-        if (memory) {
-            vkFreeMemory(ctx.device, memory, nullptr);
-            memory = VK_NULL_HANDLE;
+
+        if (m_memory)
+        {
+            vkFreeMemory(ctx.m_device, m_memory, nullptr);
+            m_memory = VK_NULL_HANDLE;
         }
     }
 
-    void* Buffer::map(const GpuContext& ctx) {
-        if (!data) {
-            VK_CHECK(vkMapMemory(ctx.device, memory, 0, size, 0, &data));
+    void* Buffer::map(const GpuContext& ctx)
+    {
+        if (!m_data)
+        {
+            VK_CHECK(vkMapMemory(ctx.m_device, m_memory, 0, m_size, 0, &m_data));
         }
-        return data;
+
+        return m_data;
     }
 
-    void Buffer::unmap(const GpuContext& ctx) {
-        if (data) {
-            vkUnmapMemory(ctx.device, memory);
-            data = nullptr;
+    void Buffer::unmap(const GpuContext& ctx)
+    {
+        if (m_data)
+        {
+            vkUnmapMemory(ctx.m_device, m_memory);
+            m_data = nullptr;
         }
     }
 
-    void Buffer::copyDataToBuffer(const void* data, uint32_t size) {
-        if (this->data && data) {
-            memcpy(this->data, data, size);
+    void Buffer::copyDataToBuffer(const void* data, uint32_t size)
+    {
+        if (m_data && data)
+        {
+            memcpy(m_data, data, size);
         }
     }
 
-    void Texture::load(const GpuContext& ctx, const char* path) {
+    void Texture::load(const GpuContext& ctx, const char* path)
+    {
         std::string fullPath = std::string(ENGINE_PROJECT_ROOT) + "/" + path;
+
         int texWidth, texHeight, texChannels;
         stbi_uc* pixels = stbi_load(fullPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-        if (!pixels) {
+
+        if (!pixels)
+        {
             throw std::runtime_error("failed to load texture image!");
         }
 
-        width = static_cast<uint32_t>(texWidth);
-        height = static_cast<uint32_t>(texHeight);
-        uint32_t imageSize = width * height * 4;
+        m_width = static_cast<uint32_t>(texWidth);
+        m_height = static_cast<uint32_t>(texHeight);
+
+        uint32_t imageSize = m_width * m_height * 4;
 
         Buffer staging;
-        staging.create(ctx, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pixels);
+        staging.create(ctx, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, pixels);
+
         stbi_image_free(pixels);
 
-        VkImageCreateInfo imageInfo{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
+        imageInfo.extent.width = m_width;
+        imageInfo.extent.height = m_height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
@@ -157,37 +191,38 @@ namespace ToyEngine {
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        VK_CHECK(vkCreateImage(ctx.device, &imageInfo, nullptr, &image));
+        VK_CHECK(vkCreateImage(ctx.m_device, &imageInfo, nullptr, &m_image));
 
         VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(ctx.device, image, &memRequirements);
+        vkGetImageMemoryRequirements(ctx.m_device, m_image, &memRequirements);
 
-        VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+        VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
         allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = ctx.findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        allocInfo.memoryTypeIndex = ctx.findMemoryType(memRequirements.memoryTypeBits,
+                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        VK_CHECK(vkAllocateMemory(ctx.device, &allocInfo, nullptr, &memory));
-        vkBindImageMemory(ctx.device, image, memory, 0);
+        VK_CHECK(vkAllocateMemory(ctx.m_device, &allocInfo, nullptr, &m_memory));
+        vkBindImageMemory(ctx.m_device, m_image, m_memory, 0);
 
         // Transition and copy
-        VkCommandBufferAllocateInfo cbAllocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+        VkCommandBufferAllocateInfo cbAllocInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
         cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        cbAllocInfo.commandPool = ctx.commandPool;
+        cbAllocInfo.commandPool = ctx.m_commandPool;
         cbAllocInfo.commandBufferCount = 1;
 
         VkCommandBuffer cmd;
-        vkAllocateCommandBuffers(ctx.device, &cbAllocInfo, &cmd);
+        vkAllocateCommandBuffers(ctx.m_device, &cbAllocInfo, &cmd);
 
-        VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+        VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         vkBeginCommandBuffer(cmd, &beginInfo);
 
-        VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+        VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
         barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image;
+        barrier.image = m_image;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
@@ -196,34 +231,37 @@ namespace ToyEngine {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                             nullptr, 1, &barrier);
 
         VkBufferImageCopy region{};
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.layerCount = 1;
-        region.imageExtent = { width, height, 1 };
-        vkCmdCopyBufferToImage(cmd, staging.buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        region.imageExtent = {m_width, m_height, 1};
+        vkCmdCopyBufferToImage(cmd, staging.m_buffer, m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                             0, nullptr, 1, &barrier);
 
         vkEndCommandBuffer(cmd);
 
-        VkSubmitInfo submitInfo{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &cmd;
-        vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(ctx.graphicsQueue);
 
-        vkFreeCommandBuffers(ctx.device, ctx.commandPool, 1, &cmd);
+        vkQueueSubmit(ctx.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(ctx.m_graphicsQueue);
+
+        vkFreeCommandBuffers(ctx.m_device, ctx.m_commandPool, 1, &cmd);
         staging.destroy(ctx);
 
-        VkImageViewCreateInfo viewInfo{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        viewInfo.image = image;
+        VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        viewInfo.image = m_image;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
         viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -232,17 +270,19 @@ namespace ToyEngine {
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        VK_CHECK(vkCreateImageView(ctx.device, &viewInfo, nullptr, &view));
+        VK_CHECK(vkCreateImageView(ctx.m_device, &viewInfo, nullptr, &m_view));
     }
 
-    void Texture::create(const GpuContext& ctx, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect) {
-        this->width = width;
-        this->height = height;
+    void Texture::create(const GpuContext& ctx, uint32_t width, uint32_t height, VkFormat format,
+                         VkImageUsageFlags usage, VkImageAspectFlags aspect)
+    {
+        m_width = width;
+        m_height = height;
 
-        VkImageCreateInfo imageInfo{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
+        imageInfo.extent.width = m_width;
+        imageInfo.extent.height = m_height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
@@ -252,21 +292,21 @@ namespace ToyEngine {
         imageInfo.usage = usage;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        VK_CHECK(vkCreateImage(ctx.device, &imageInfo, nullptr, &image));
+        VK_CHECK(vkCreateImage(ctx.m_device, &imageInfo, nullptr, &m_image));
 
         VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(ctx.device, image, &memRequirements);
+        vkGetImageMemoryRequirements(ctx.m_device, m_image, &memRequirements);
 
-        VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+        VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
         allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = ctx.findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        allocInfo.memoryTypeIndex = ctx.findMemoryType(memRequirements.memoryTypeBits,
+                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        VK_CHECK(vkAllocateMemory(ctx.device, &allocInfo, nullptr, &memory));
-        vkBindImageMemory(ctx.device, image, memory, 0);
+        VK_CHECK(vkAllocateMemory(ctx.m_device, &allocInfo, nullptr, &m_memory));
+        vkBindImageMemory(ctx.m_device, m_image, m_memory, 0);
 
-        VkImageViewCreateInfo viewInfo{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        viewInfo.image = image;
+        VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        viewInfo.image = m_image;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         viewInfo.format = format;
         viewInfo.subresourceRange.aspectMask = aspect;
@@ -275,32 +315,34 @@ namespace ToyEngine {
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        VK_CHECK(vkCreateImageView(ctx.device, &viewInfo, nullptr, &view));
+        VK_CHECK(vkCreateImageView(ctx.m_device, &viewInfo, nullptr, &m_view));
     }
 
-    void Texture::uploadData(const GpuContext& ctx, const void* data, uint32_t size) {
+    void Texture::uploadData(const GpuContext& ctx, const void* data, uint32_t size)
+    {
         Buffer staging;
-        staging.create(ctx, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, data);
+        staging.create(ctx, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, data);
 
         // Transition and copy
-        VkCommandBufferAllocateInfo cbAllocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+        VkCommandBufferAllocateInfo cbAllocInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
         cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        cbAllocInfo.commandPool = ctx.commandPool;
+        cbAllocInfo.commandPool = ctx.m_commandPool;
         cbAllocInfo.commandBufferCount = 1;
 
         VkCommandBuffer cmd;
-        vkAllocateCommandBuffers(ctx.device, &cbAllocInfo, &cmd);
+        vkAllocateCommandBuffers(ctx.m_device, &cbAllocInfo, &cmd);
 
-        VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+        VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         vkBeginCommandBuffer(cmd, &beginInfo);
 
-        VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+        VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
         barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image;
+        barrier.image = m_image;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
@@ -309,93 +351,126 @@ namespace ToyEngine {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                             nullptr, 1, &barrier);
 
         VkBufferImageCopy region{};
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.layerCount = 1;
-        region.imageExtent = { width, height, 1 };
-        vkCmdCopyBufferToImage(cmd, staging.buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        region.imageExtent = {m_width, m_height, 1};
+
+        vkCmdCopyBufferToImage(cmd, staging.m_buffer, m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                             0, nullptr, 1, &barrier);
 
         vkEndCommandBuffer(cmd);
 
-        VkSubmitInfo submitInfo{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &cmd;
-        vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(ctx.graphicsQueue);
 
-        vkFreeCommandBuffers(ctx.device, ctx.commandPool, 1, &cmd);
+        vkQueueSubmit(ctx.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(ctx.m_graphicsQueue);
+
+        vkFreeCommandBuffers(ctx.m_device, ctx.m_commandPool, 1, &cmd);
         staging.destroy(ctx);
     }
 
-    void Texture::destroy(const GpuContext& ctx) {
-        if (view) vkDestroyImageView(ctx.device, view, nullptr);
-        if (image) vkDestroyImage(ctx.device, image, nullptr);
-        if (memory) vkFreeMemory(ctx.device, memory, nullptr);
-        image = VK_NULL_HANDLE;
-        view = VK_NULL_HANDLE;
-        memory = VK_NULL_HANDLE;
+    void Texture::destroy(const GpuContext& ctx)
+    {
+        if (m_view)
+        {
+            vkDestroyImageView(ctx.m_device, m_view, nullptr);
+        }
+
+        if (m_image)
+        {
+            vkDestroyImage(ctx.m_device, m_image, nullptr);
+        }
+
+        if (m_memory)
+        {
+            vkFreeMemory(ctx.m_device, m_memory, nullptr);
+        }
+
+        m_image = VK_NULL_HANDLE;
+        m_view = VK_NULL_HANDLE;
+        m_memory = VK_NULL_HANDLE;
     }
 
-    void RenderTarget::create(const GpuContext& ctx, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect) {
-        this->width = width;
-        this->height = height;
-        this->format = format;
+    void RenderTarget::create(const GpuContext& ctx, uint32_t width, uint32_t height, VkFormat format,
+                              VkImageUsageFlags usage, VkImageAspectFlags aspect)
+    {
+        m_width = width;
+        m_height = height;
+        m_format = format;
 
-        VkImageCreateInfo imageInfo{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
+        imageInfo.extent.width = m_width;
+        imageInfo.extent.height = m_height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
+        imageInfo.format = m_format;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         imageInfo.usage = usage;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        VK_CHECK(vkCreateImage(ctx.device, &imageInfo, nullptr, &image));
+        VK_CHECK(vkCreateImage(ctx.m_device, &imageInfo, nullptr, &m_image));
 
         VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(ctx.device, image, &memRequirements);
+        vkGetImageMemoryRequirements(ctx.m_device, m_image, &memRequirements);
 
-        VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+        VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
         allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = ctx.findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        allocInfo.memoryTypeIndex = ctx.findMemoryType(memRequirements.memoryTypeBits,
+                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        VK_CHECK(vkAllocateMemory(ctx.device, &allocInfo, nullptr, &memory));
-        vkBindImageMemory(ctx.device, image, memory, 0);
+        VK_CHECK(vkAllocateMemory(ctx.m_device, &allocInfo, nullptr, &m_memory));
+        vkBindImageMemory(ctx.m_device, m_image, m_memory, 0);
 
-        VkImageViewCreateInfo viewInfo{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        viewInfo.image = image;
+        VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        viewInfo.image = m_image;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = format;
+        viewInfo.format = m_format;
         viewInfo.subresourceRange.aspectMask = aspect;
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = 1;
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        VK_CHECK(vkCreateImageView(ctx.device, &viewInfo, nullptr, &view));
+        VK_CHECK(vkCreateImageView(ctx.m_device, &viewInfo, nullptr, &m_view));
     }
 
-    void RenderTarget::destroy(const GpuContext& ctx) {
-        if (view) vkDestroyImageView(ctx.device, view, nullptr);
-        if (image) vkDestroyImage(ctx.device, image, nullptr);
-        if (memory) vkFreeMemory(ctx.device, memory, nullptr);
-        image = VK_NULL_HANDLE;
-        view = VK_NULL_HANDLE;
-        memory = VK_NULL_HANDLE;
+    void RenderTarget::destroy(const GpuContext& ctx)
+    {
+        if (m_view)
+        {
+            vkDestroyImageView(ctx.m_device, m_view, nullptr);
+        }
+
+        if (m_image)
+        {
+            vkDestroyImage(ctx.m_device, m_image, nullptr);
+        }
+
+        if (m_memory)
+        {
+            vkFreeMemory(ctx.m_device, m_memory, nullptr);
+        }
+
+        m_image = VK_NULL_HANDLE;
+        m_view = VK_NULL_HANDLE;
+        m_memory = VK_NULL_HANDLE;
     }
 
 }

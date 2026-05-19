@@ -43,8 +43,8 @@ project "Engine"
 
     files {
         "Engine/main.cpp",
-        "Engine/src/**.cpp",
-        "Engine/src/**.h",
+        "Engine/src/*.cpp",
+        "Engine/src/*.h",
         "Engine/Common/**.h", -- Add Common directory files
         "extern/volk/volk.c",
         "extern/volk/volk.h",

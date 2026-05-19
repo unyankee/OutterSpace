@@ -2,22 +2,25 @@
 
 #include <vector>
 #include <algorithm>
+
 #include "Mesh.h"
 #include "Pipeline.h"
 
 namespace ToyEngine
 {
+
     struct Transform
     {
-        Vec3 position = {0, 0, 0};
-        Vec3 rotation = {0, 0, 0};
-        Vec3 scale = {1, 1, 1};
+        Vec3 m_position = {0, 0, 0};
+        Vec3 m_rotation = {0, 0, 0};
+        Vec3 m_scale = {1, 1, 1};
     };
 
     class Actor
     {
     public:
-        Actor(Mesh* mesh) : m_mesh(mesh)
+        Actor(Mesh* mesh)
+            : m_mesh(mesh)
         {
         }
 
@@ -38,12 +41,20 @@ namespace ToyEngine
             // For now, it just binds the index buffer and draws
         }
 
-        Mesh* getMesh() const { return m_mesh; }
-        Transform& getTransform() { return m_transform; }
+        Mesh* getMesh() const
+        {
+            return m_mesh;
+        }
+
+        Transform& getTransform()
+        {
+            return m_transform;
+        }
 
     private:
         Mesh* m_mesh;
         Transform m_transform;
         std::vector<Pipeline*> m_registered_pipelines;
     };
+
 }

@@ -3,23 +3,31 @@
 #include <volk.h>
 #include <GLFW/glfw3.h>
 #include <vector>
+
 #include <imgui.h>
+
 #include "GpuResources.h"
 #include "Pipeline.h"
 
 namespace ToyEngine
 {
+
     class EditorLayer
     {
     public:
         void init(const GpuContext& ctx, GLFWwindow* window, VkFormat colorFormat);
+
         void beginFrame();
+
         void render(VkCommandBuffer cmd, uint32_t width, uint32_t height);
+
         void destroy(const GpuContext& ctx);
 
     private:
         void createPipeline(const GpuContext& ctx, VkFormat colorFormat);
+
         void createFontAtlas(const GpuContext& ctx);
+
         void updateBuffers(const GpuContext& ctx, ImDrawData* drawData);
 
         Pipeline m_pipeline;
@@ -38,4 +46,5 @@ namespace ToyEngine
         GLFWwindow* m_window = nullptr;
         GpuContext m_ctx;
     };
+
 }
