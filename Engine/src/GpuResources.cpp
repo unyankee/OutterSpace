@@ -30,7 +30,8 @@ namespace ToyEngine
         VkBufferCreateInfo bufferInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
         bufferInfo.size = size;
         bufferInfo.usage = usage;
-
+        // If is not host visible (cpu can touch) and there is initial data
+        // this buffer needs to be gpu only, so stagin buffer to copy to another gpu only buffer
         if (initialData && !(properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
         {
             bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -46,7 +47,7 @@ namespace ToyEngine
         allocInfo.memoryTypeIndex = ctx.findMemoryType(memRequirements.memoryTypeBits, properties);
 
         VkMemoryAllocateFlagsInfo allocFlagsInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
-        if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) // Enable pointer to buffers if needed
         {
             allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
             allocInfo.pNext = &allocFlagsInfo;
@@ -146,7 +147,7 @@ namespace ToyEngine
         }
     }
 
-    void Buffer::copyDataToBuffer(const void* data, uint32_t size)
+    void Buffer::copyDataToBuffer(const void* data, uint32_t size) const
     {
         if (m_data && data)
         {

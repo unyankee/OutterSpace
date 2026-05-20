@@ -31,7 +31,7 @@ namespace ToyEngine
 
         void* map(const GpuContext& ctx);
         void unmap(const GpuContext& ctx);
-        void copyDataToBuffer(const void* data, uint32_t size);
+        void copyDataToBuffer(const void* data, uint32_t size) const;
 
     private:
         friend class ResourceManager;

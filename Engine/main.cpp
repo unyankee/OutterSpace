@@ -434,6 +434,7 @@ void EngineInstance::MainLoop()
         glfwPollEvents();
 
         editorLayer.beginFrame();
+        
         ImGui::Begin("Engine Stats");
         ImGui::Text("Delta Time: %.3f ms (%.1f FPS)", deltaTime * 1000.0f, 1.0f / deltaTime);
         ImGui::End();
@@ -483,8 +484,8 @@ void EngineInstance::MainLoop()
         GpuCameraData camData;
         camData.view = camera.getViewMatrix();
         camData.proj = camera.getProjectionMatrix();
-        Buffer* cameraBuffer = resourceManager.getBuffer(camera_buffer);
-        cameraBuffer->copyDataToBuffer(&camData, sizeof(GpuCameraData));
+        Buffer* cameraBufferRef = resourceManager.getBuffer(camera_buffer);
+        cameraBufferRef->copyDataToBuffer(&camData, sizeof(GpuCameraData));
 
         vkWaitForFences(Device, 1, &renderFence, VK_TRUE, ~0ull);
         vkResetFences(Device, 1, &renderFence);
@@ -535,20 +536,21 @@ void EngineInstance::MainLoop()
         VkRect2D scissor = {{0, 0}, {swapchain.width, swapchain.height}};
         vkCmdSetScissor(CommandBuffer, 0, 1, &scissor);
 
+        Buffer* vertexBuffer = resourceManager.getBuffer(vb);
+        Buffer* cameraBuffer = resourceManager.getBuffer(camera_buffer);
+        Buffer* meshlets = resourceManager.getBuffer(meshletBuffer);
+        Buffer* meshletVertices = resourceManager.getBuffer(meshletVertexBuffer);
+        Buffer* meshletTriangles = resourceManager.getBuffer(meshletTriangleBuffer);
+        Texture* mainTexture = resourceManager.getTexture(texture);
+
         for (auto* pipeline : pipelines)
         {
-            Buffer* vertexBuffer = resourceManager.getBuffer(vb);
-            Buffer* cameraBuffer = resourceManager.getBuffer(camera_buffer);
-            Buffer* meshlets = resourceManager.getBuffer(meshletBuffer);
-            Buffer* meshletVertices = resourceManager.getBuffer(meshletVertexBuffer);
-            Buffer* meshletTriangles = resourceManager.getBuffer(meshletTriangleBuffer);
-            Texture* mainTexture = resourceManager.getTexture(texture);
-
             pipeline->bind(CommandBuffer);
             // Right now using a single set, with 2 bindings (global textures and samplers)
             VkDescriptorSet set = pipeline_manager.getGlobalDescriptorSet();
-            vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &set,
-                                    0, nullptr);
+            // This is the set with the global pool of textures and samplers
+            vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &set,0, nullptr);
+            
             for (auto* actor : actors)
             {
                 if (actor->hasPipeline(pipeline))
@@ -557,13 +559,14 @@ void EngineInstance::MainLoop()
                     DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
                                                   meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
                                                   meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0};
-                    vkCmdPushConstants(CommandBuffer, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,
-                                       sizeof(DefaultPipelineLayout),
-                                       &push);
+                    
+                    vkCmdPushConstants(CommandBuffer, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,sizeof(DefaultPipelineLayout),&push);
+                    
                     vkCmdDrawMeshTasksEXT(CommandBuffer, (uint32_t)actor->getMesh()->m_meshlets.size(), 1, 1);
                 }
             }
         }
+        
         editorLayer.render(CommandBuffer, swapchain.width, swapchain.height);
         vkCmdEndRendering(CommandBuffer);
 
