@@ -86,10 +86,10 @@ namespace ToyEngine
         indexBuffer->unmap(*m_ctx);
 
         // Bind pipeline and descriptor sets
-        m_pipeline.bind(cmd);
+        m_pipeline->bind(cmd);
 
         VkDescriptorSet sets[] = {m_fontDescriptorSet, m_samplerDescriptorSet};
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.getLayout(), 0, 2, sets, 0, nullptr);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getLayout(), 0, 2, sets, 0, nullptr);
 
         VkViewport viewport = {0, 0, (float)width, (float)height, 0, 1};
         vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -105,7 +105,7 @@ namespace ToyEngine
         pc.translate[0] = -1.0f - drawData->DisplayPos.x * pc.scale[0];
         pc.translate[1] = -1.0f - drawData->DisplayPos.y * pc.scale[1];
 
-        vkCmdPushConstants(cmd, m_pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+        vkCmdPushConstants(cmd, m_pipeline->getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer->m_buffer, &offset);
@@ -147,7 +147,9 @@ namespace ToyEngine
 
     void EditorLayer::destroy()
     {
-        m_pipeline.destroy(*m_ctx);
+        m_pipeline->destroy(*m_ctx);
+        delete m_pipeline;
+        
         m_resourceManager->destroyTexture(m_fontTexture);
         m_resourceManager->destroyBuffer(m_vertexBuffer);
         m_resourceManager->destroyBuffer(m_indexBuffer);
@@ -212,8 +214,9 @@ namespace ToyEngine
         config.m_depthWrite = false;
         config.m_blending = true;
         config.m_cullMode = VK_CULL_MODE_NONE;
-
-        m_pipeline.create(ctx, config, {m_textureLayout, m_samplerLayout});
+        // This is temporary, pipeline will be replaced with a pipeline handle as well...
+        m_pipeline = new Pipeline(config);
+        m_pipeline->create(ctx, {m_textureLayout, m_samplerLayout});
     }
 
     void EditorLayer::createFontAtlas(const GpuContext& ctx)

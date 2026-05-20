@@ -8,17 +8,26 @@
 namespace ToyEngine
 {
 
-    void Pipeline::create(const GpuContext& ctx, const PipelineConfig& config, VkDescriptorSetLayout descriptorLayout)
+    void Pipeline::create(const GpuContext& ctx, VkDescriptorSetLayout descriptorLayout)
     {
-        create(ctx, config, std::vector<VkDescriptorSetLayout>{descriptorLayout});
+        create(ctx, std::vector<VkDescriptorSetLayout>{descriptorLayout});
     }
 
-    void Pipeline::create(const GpuContext& ctx, const PipelineConfig& config, std::vector<VkDescriptorSetLayout> descriptorLayouts)
+    void Pipeline::create(const GpuContext& ctx, std::vector<VkDescriptorSetLayout> descriptorLayouts)
     {
         VkPushConstantRange pushConstantRange{};
-        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        if (m_config.m_useMeshShaders)
+        {
+            pushConstantRange.stageFlags |= VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_TASK_BIT_EXT;
+        }
+        else
+        {
+            pushConstantRange.stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;            
+        }
+        
         pushConstantRange.offset = 0;
-        pushConstantRange.size = 128;
+        pushConstantRange.size = sizeof(DefaultPipelineLayout);
 
         VkPipelineLayoutCreateInfo layoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         layoutInfo.setLayoutCount = (uint32_t)descriptorLayouts.size();
@@ -28,17 +37,37 @@ namespace ToyEngine
 
         VK_CHECK(vkCreatePipelineLayout(ctx.m_device, &layoutInfo, nullptr, &m_layout));
 
-        VkPipelineShaderStageCreateInfo shaderStages[2] = {};
+        VkPipelineShaderStageCreateInfo shaderStages[3] = {};
+        uint32_t shaderStageCount = 0;
 
-        shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-        shaderStages[0].module = config.m_vertexShader;
-        shaderStages[0].pName = "main";
+        if (m_config.m_useMeshShaders)
+        {
+            shaderStages[shaderStageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            shaderStages[shaderStageCount].stage = VK_SHADER_STAGE_TASK_BIT_EXT;
+            shaderStages[shaderStageCount].module = m_config.m_taskShader;
+            shaderStages[shaderStageCount].pName = "main";
+            ++shaderStageCount;
 
-        shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        shaderStages[1].module = config.m_fragmentShader;
-        shaderStages[1].pName = "main";
+            shaderStages[shaderStageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            shaderStages[shaderStageCount].stage = VK_SHADER_STAGE_MESH_BIT_EXT;
+            shaderStages[shaderStageCount].module = m_config.m_meshShader;
+            shaderStages[shaderStageCount].pName = "main";
+            ++shaderStageCount;
+        }
+        else
+        {
+            shaderStages[shaderStageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            shaderStages[shaderStageCount].stage = VK_SHADER_STAGE_VERTEX_BIT;
+            shaderStages[shaderStageCount].module = m_config.m_vertexShader;
+            shaderStages[shaderStageCount].pName = "main";
+            ++shaderStageCount;
+        }
+
+        shaderStages[shaderStageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shaderStages[shaderStageCount].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        shaderStages[shaderStageCount].module = m_config.m_fragmentShader;
+        shaderStages[shaderStageCount].pName = "main";
+        ++shaderStageCount;
 
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
@@ -64,7 +93,7 @@ namespace ToyEngine
         attrDesc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
         attrDesc[2].offset = 16;
 
-        if (config.m_blending)
+        if (m_config.m_blending)
         {
             vertexInputInfo.vertexBindingDescriptionCount = 1;
             vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
@@ -86,8 +115,8 @@ namespace ToyEngine
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = config.m_cullMode;
-        rasterizer.frontFace = config.m_frontFace;
+        rasterizer.cullMode = m_config.m_cullMode;
+        rasterizer.frontFace = m_config.m_frontFace;
         rasterizer.depthBiasEnable = VK_FALSE;
 
         VkPipelineMultisampleStateCreateInfo multisampling{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
@@ -95,9 +124,9 @@ namespace ToyEngine
         multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
         VkPipelineDepthStencilStateCreateInfo depthStencil{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-        depthStencil.depthTestEnable = config.m_depthTest ? VK_TRUE : VK_FALSE;
-        depthStencil.depthWriteEnable = config.m_depthWrite ? VK_TRUE : VK_FALSE;
-        depthStencil.depthCompareOp = config.m_depthCompareOp;
+        depthStencil.depthTestEnable = m_config.m_depthTest ? VK_TRUE : VK_FALSE;
+        depthStencil.depthWriteEnable = m_config.m_depthWrite ? VK_TRUE : VK_FALSE;
+        depthStencil.depthCompareOp = m_config.m_depthCompareOp;
         depthStencil.depthBoundsTestEnable = VK_FALSE;
         depthStencil.stencilTestEnable = VK_FALSE;
 
@@ -105,7 +134,7 @@ namespace ToyEngine
         colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-        if (config.m_blending)
+        if (m_config.m_blending)
         {
             colorBlendAttachment.blendEnable = VK_TRUE;
             colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -131,10 +160,10 @@ namespace ToyEngine
         dynamicState.pDynamicStates = dynamicStates;
 
         VkGraphicsPipelineCreateInfo pipelineInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-        pipelineInfo.stageCount = 2;
+        pipelineInfo.stageCount = shaderStageCount;
         pipelineInfo.pStages = shaderStages;
-        pipelineInfo.pVertexInputState = &vertexInputInfo;
-        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pVertexInputState = m_config.m_useMeshShaders ? nullptr : &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = m_config.m_useMeshShaders ? nullptr : &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
         pipelineInfo.pMultisampleState = &multisampling;
@@ -146,13 +175,24 @@ namespace ToyEngine
 
         VkPipelineRenderingCreateInfo renderingInfo{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
         renderingInfo.colorAttachmentCount = 1;
-        renderingInfo.pColorAttachmentFormats = &config.m_colorFormat;
-        renderingInfo.depthAttachmentFormat = config.m_depthFormat;
+        renderingInfo.pColorAttachmentFormats = &m_config.m_colorFormat;
+        renderingInfo.depthAttachmentFormat = m_config.m_depthFormat;
         pipelineInfo.pNext = &renderingInfo;
 
         VK_CHECK(vkCreateGraphicsPipelines(ctx.m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline));
     }
 
+    VkShaderStageFlags Pipeline::getPipelineStageMask( ) const
+    {
+        VkShaderStageFlags ShaderStageFlags = 0;
+        ShaderStageFlags |= (m_config.m_fragmentShader != VK_NULL_HANDLE) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0;
+        ShaderStageFlags |= (m_config.m_vertexShader != VK_NULL_HANDLE) ? VK_SHADER_STAGE_VERTEX_BIT : 0;
+        ShaderStageFlags |= (m_config.m_meshShader != VK_NULL_HANDLE) ? VK_SHADER_STAGE_MESH_BIT_EXT : 0;
+        ShaderStageFlags |= (m_config.m_taskShader != VK_NULL_HANDLE) ? VK_SHADER_STAGE_TASK_BIT_EXT : 0;
+        
+        return ShaderStageFlags;
+    };
+    
     void Pipeline::destroy(const GpuContext& ctx)
     {
         if (m_pipeline)

@@ -16,12 +16,13 @@
 
 #define ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
 
-// Old structs removed, now in GpuResources.h
-
 struct DefaultPipelineLayout
 {
 	VkDeviceAddress VertexDataPtr;
 	VkDeviceAddress CameraDataPtr;
+	VkDeviceAddress MeshletDataPtr;
+	VkDeviceAddress MeshletVertexDataPtr;
+	VkDeviceAddress MeshletTriangleDataPtr;
 	uint32_t textureIndex;
 	uint32_t samplerIndex;
 };

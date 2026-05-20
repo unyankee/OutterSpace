@@ -6,6 +6,9 @@ layout(push_constant) uniform Constants
 {
     uint64_t vertexBufferAddress; 
     uint64_t cameraBufferAddress; 
+    uint64_t meshletBufferAddress;
+    uint64_t meshletVertexBufferAddress;
+    uint64_t meshletTriangleBufferAddress;
     uint textureIndex;            
     uint samplerIndex;           
 } push;

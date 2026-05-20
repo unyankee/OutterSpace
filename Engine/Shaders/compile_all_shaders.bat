@@ -19,6 +19,8 @@ set "FILE_NAME=%~nx1"
 set "FINAL_NAME=%~n1.spv"
 set "STYPE=Unknown Stage"
 
+if /i "!FILE_NAME!"=="common.glsl" goto :eof
+
 :: Check for shader stage keywords within the filename
 echo !FILE_NAME! | findstr /i ".vert" >nul && set "STYPE=Vertex Shader"
 echo !FILE_NAME! | findstr /i ".frag" >nul && set "STYPE=Fragment Shader"
@@ -32,7 +34,7 @@ echo !FILE_NAME! | findstr /i ".comp" >nul && set "STYPE=Compute Shader"
 echo Found !FILE_NAME! -^> Compiled as !STYPE! -^> !FINAL_NAME!
 
 :: Execute compilation using glslangValidator
-"%COMPILER%" -V "%FULL_PATH%" -o "%~dpn1.spv" > compile_log.tmp 2>&1
+"%COMPILER%" -V --target-env vulkan1.3 "%FULL_PATH%" -o "%~dpn1.spv" > compile_log.tmp 2>&1
 
 if !errorlevel! equ 0 (
     echo [SUCCESS]

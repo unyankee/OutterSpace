@@ -230,7 +230,7 @@ void EngineInstance::CreateDevice()
     DeviceQueueCreateInfo.queueCount = 1;
     DeviceQueueCreateInfo.pQueuePriorities = QueuePriorities;
 
-    const char* Extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const char* Extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_MESH_SHADER_EXTENSION_NAME};
     VkDeviceCreateInfo DeviceCreateInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     DeviceCreateInfo.queueCreateInfoCount = 1;
     DeviceCreateInfo.pQueueCreateInfos = &DeviceQueueCreateInfo;
@@ -248,7 +248,13 @@ void EngineInstance::CreateDevice()
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES
     };
     DynamicRenderingFeatures.dynamicRendering = VK_TRUE;
-    DynamicRenderingFeatures.pNext = &features12;
+
+    VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT};
+    meshShaderFeatures.taskShader = VK_TRUE;
+    meshShaderFeatures.meshShader = VK_TRUE;
+    meshShaderFeatures.pNext = &features12;
+
+    DynamicRenderingFeatures.pNext = &meshShaderFeatures;
 
     VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     features2.features.shaderInt64 = VK_TRUE;
@@ -376,20 +382,24 @@ void EngineInstance::MainLoop()
     VkCommandBuffer CommandBuffer;
     vkAllocateCommandBuffers(Device, &AllocateInfo, &CommandBuffer);
 
-    VkShaderModule MeshVs = Pipeline::loadShader(Device, "Shaders/mesh.vert.spv");
+    VkShaderModule MeshTask = Pipeline::loadShader(Device, "Shaders/mesh.task.spv");
+    VkShaderModule MeshMesh = Pipeline::loadShader(Device, "Shaders/mesh.mesh.spv");
     VkShaderModule MeshFs = Pipeline::loadShader(Device, "Shaders/mesh.frag.spv");
 
-    Pipeline* mainPipeline = new Pipeline();
     PipelineConfig config{};
-    config.m_vertexShader = MeshVs;
+    config.m_taskShader = MeshTask;
+    config.m_meshShader = MeshMesh;
     config.m_fragmentShader = MeshFs;
     config.m_colorFormat = surfaceFormat.format;
-    mainPipeline->create(gpuContext, config, pipeline_manager.getGlobalDescriptorSetLayout());
+    config.m_useMeshShaders = true;
+
+    Pipeline* mainPipeline = new Pipeline(config);
+    mainPipeline->create(gpuContext, pipeline_manager.getGlobalDescriptorSetLayout());
     
     pipelines.push_back(mainPipeline);
 
     Mesh* testMesh = new Mesh();
-    testMesh->loadFromObj("assets/models/untitled.obj");
+    testMesh->loadFromObj("assets/models/sponza.obj");
 
     TextureHandle texture = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
     pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(texture));
@@ -398,9 +408,17 @@ void EngineInstance::MainLoop()
               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_vertices.data());
     
-    BufferHandle ib = resourceManager.createBuffer((uint32_t)(testMesh->m_indices.size() * sizeof(uint32_t)),
-              VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_indices.data());
+    BufferHandle meshletBuffer = resourceManager.createBuffer((uint32_t)(testMesh->m_meshlets.size() * sizeof(Meshlet)),
+              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshlets.data());
+
+    BufferHandle meshletVertexBuffer = resourceManager.createBuffer((uint32_t)(testMesh->m_meshletVertices.size() * sizeof(uint32_t)),
+              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletVertices.data());
+
+    BufferHandle meshletTriangleBuffer = resourceManager.createBuffer((uint32_t)(testMesh->m_meshletTriangles.size() * sizeof(uint32_t)),
+              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletTriangles.data());
 
     Actor* dragonActor = new Actor(testMesh);
     dragonActor->registerPipeline(mainPipeline);
@@ -464,7 +482,8 @@ void EngineInstance::MainLoop()
         GpuCameraData camData;
         camData.view = camera.getViewMatrix();
         camData.proj = camera.getProjectionMatrix();
-        resourceManager.getBuffer(camera_buffer)->copyDataToBuffer(&camData, sizeof(GpuCameraData));
+        Buffer* cameraBuffer = resourceManager.getBuffer(camera_buffer);
+        cameraBuffer->copyDataToBuffer(&camData, sizeof(GpuCameraData));
 
         vkWaitForFences(Device, 1, &renderFence, VK_TRUE, ~0ull);
         vkResetFences(Device, 1, &renderFence);
@@ -518,8 +537,10 @@ void EngineInstance::MainLoop()
         for (auto* pipeline : pipelines)
         {
             Buffer* vertexBuffer = resourceManager.getBuffer(vb);
-            Buffer* indexBuffer = resourceManager.getBuffer(ib);
             Buffer* cameraBuffer = resourceManager.getBuffer(camera_buffer);
+            Buffer* meshlets = resourceManager.getBuffer(meshletBuffer);
+            Buffer* meshletVertices = resourceManager.getBuffer(meshletVertexBuffer);
+            Buffer* meshletTriangles = resourceManager.getBuffer(meshletTriangleBuffer);
             Texture* mainTexture = resourceManager.getTexture(texture);
 
             pipeline->bind(CommandBuffer);
@@ -532,12 +553,13 @@ void EngineInstance::MainLoop()
                 if (actor->hasPipeline(pipeline))
                 {
                     // Using pointer buffers to write the gpu address of the needed buffers / also pushing the texture + sampler needed
-                    DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress, mainTexture->m_bindlessIndex, 0};
-                    vkCmdPushConstants(CommandBuffer, pipeline->getLayout(),
-                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push),
+                    DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
+                                                  meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
+                                                  meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0};
+                    vkCmdPushConstants(CommandBuffer, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,
+                                       sizeof(DefaultPipelineLayout),
                                        &push);
-                    vkCmdBindIndexBuffer(CommandBuffer, indexBuffer->m_buffer, 0, VK_INDEX_TYPE_UINT32);
-                    vkCmdDrawIndexed(CommandBuffer, (uint32_t)actor->getMesh()->m_indices.size(), 1, 0, 0, 0);
+                    vkCmdDrawMeshTasksEXT(CommandBuffer, (uint32_t)actor->getMesh()->m_meshlets.size(), 1, 1);
                 }
             }
         }
