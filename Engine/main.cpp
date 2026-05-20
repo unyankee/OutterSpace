@@ -399,7 +399,8 @@ void EngineInstance::MainLoop()
     pipelines.push_back(mainPipeline);
 
     Mesh* testMesh = new Mesh();
-    testMesh->loadFromObj("assets/models/sponza.obj");
+    //testMesh->loadFromObj("assets/models/sponza.obj");
+    testMesh->loadFromObj("assets/models/dragon.obj");
 
     TextureHandle texture = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
     pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(texture));

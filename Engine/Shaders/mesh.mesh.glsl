@@ -2,6 +2,7 @@
 #extension GL_EXT_mesh_shader : require
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_buffer_reference : require
+#extension GL_KHR_shader_subgroup_ballot : require
 
 #include "common.glsl"
 
@@ -102,13 +103,13 @@ void main()
         Vertex vertex = VertexBufferPtr(push.vertexBufferAddress).vertices[vertexIndex];
 
         vec3 position = vec3(vertex.vx, vertex.vy, vertex.vz);
-        gl_MeshVerticesEXT[i].gl_Position = cam.proj * cam.view * vec4(position* 0.5, 1.0); // debugging a large model...
+        gl_MeshVerticesEXT[i].gl_Position = cam.proj * cam.view * vec4(position * 128.0, 1.0); // debugging a model...
 
         outUV[i] = vec2(vertex.tu, vertex.tv);
         outNormal[i] = vec3(vertex.nx, vertex.ny, vertex.nz);
 
         // since the whole meshlet is in the same group... 
-        const vec3 debugColor = randomColor(payload.meshletIndex);
+        const vec3 debugColor = subgroupBroadcastFirst(randomColor(payload.meshletIndex));
         outMeshletDebugColor[i] = debugColor;
     }
 

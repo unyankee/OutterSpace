@@ -33,7 +33,7 @@ namespace ToyEngine
         , m_worldUp({0.0f, 1.0f, 0.0f})
         , m_yaw(-135.0f)
         , m_pitch(-15.0f)
-        , m_movementSpeed(10.0f)
+        , m_movementSpeed(40.0f)
         , m_mouseSensitivity(0.1f)
     {
         updateCameraVectors();
