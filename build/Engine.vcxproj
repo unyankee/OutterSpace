@@ -135,6 +135,7 @@
     <ClInclude Include="..\Engine\src\Mesh.h" />
     <ClInclude Include="..\Engine\src\Pipeline.h" />
     <ClInclude Include="..\Engine\src\PipelineManager.h" />
+    <ClInclude Include="..\Engine\src\ResourceManager.h" />
     <ClInclude Include="..\Engine\Common\Common.h" />
     <ClInclude Include="..\extern\volk\volk.h" />
     <ClInclude Include="..\extern\meshoptimizer\src\meshoptimizer.h" />
@@ -153,6 +154,8 @@
     <ClCompile Include="..\Engine\src\Pipeline.cpp">
     </ClCompile>
     <ClCompile Include="..\Engine\src\PipelineManager.cpp">
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\ResourceManager.cpp">
     </ClCompile>
     <ClCompile Include="..\extern\volk\volk.c">
     </ClCompile>

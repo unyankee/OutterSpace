@@ -19,6 +19,7 @@
 #include "src/Camera.h"
 #include "src/Mesh.h"
 #include "src/GpuResources.h"
+#include "src/ResourceManager.h"
 #include "src/Pipeline.h"
 #include "src/Actor.h"
 #include "src/EditorLayer.h"
@@ -61,16 +62,17 @@ public:
     uint32_t swapchainImagesCount = 0;
 
     Swapchain swapchain;
-    RenderTarget DepthTexture;
+    RenderTargetHandle DepthTexture;
 
     VkPhysicalDeviceMemoryProperties PhysicalMemoryProperties;
     VkDebugReportCallbackEXT DebugCallback;
 
     GpuContext gpuContext;
     PipelineManager pipeline_manager;
+    ResourceManager resourceManager;
     Camera camera;
 
-    Buffer camera_buffer;
+    BufferHandle camera_buffer;
 
     std::vector<Pipeline*> pipelines;
     std::vector<Actor*> actors;
@@ -92,7 +94,6 @@ public:
     static VkImageMemoryBarrier ImageBarrier(VkImage Image, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
                                              VkImageLayout oldLayout, VkImageLayout newLayout);
 
-    VkCommandPool CreateCommandPool();
 };
 
 VkBool32 DebugReporterVulkan(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object,
@@ -139,16 +140,6 @@ VkImageMemoryBarrier EngineInstance::ImageBarrier(VkImage Image, VkAccessFlags s
     return Result;
 }
 
-VkCommandPool EngineInstance::CreateCommandPool()
-{
-    VkCommandPoolCreateInfo CommandPoolCreateInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-    CommandPoolCreateInfo.queueFamilyIndex = FamilyIndex;
-    CommandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-    VkCommandPool CommandPool = VK_NULL_HANDLE;
-    VK_CHECK(vkCreateCommandPool(Device, &CommandPoolCreateInfo, nullptr, &CommandPool));
-    return CommandPool;
-}
-
 void EngineInstance::InitInstance()
 {
     glfwInit();
@@ -193,16 +184,17 @@ void EngineInstance::InitInstance()
     gpuContext.m_device = Device;
     gpuContext.m_physicalDevice = PhysicalDevice;
     gpuContext.m_memoryProperties = PhysicalMemoryProperties;
-    gpuContext.m_commandPool = CreateCommandPool();
     vkGetDeviceQueue(Device, FamilyIndex, 0, &gpuContext.m_graphicsQueue);
     gpuContext.m_graphicsFamilyIndex = FamilyIndex;
 
+    resourceManager.init(gpuContext);
+    gpuContext.m_commandPool = resourceManager.createCommandPool(FamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
     pipeline_manager.init(Device);
 
     camera.setPerspective(70.f, (float)StartupWidthResolution / (float)StartupHeightResolution, 0.1f, 1000.f);
     camera.update();
 
-    camera_buffer.create(gpuContext, sizeof(GpuCameraData),
+    camera_buffer = resourceManager.createBuffer(sizeof(GpuCameraData),
                          VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -210,7 +202,7 @@ void EngineInstance::InitInstance()
     GetSwapchainFormat();
     CreateSwapchain();
 
-    editorLayer.init(gpuContext, window, surfaceFormat.format);
+    editorLayer.init(gpuContext, &resourceManager, window, surfaceFormat.format);
 }
 
 void EngineInstance::SelectPhysicalDevice()
@@ -294,8 +286,11 @@ void EngineInstance::GetSwapchainFormat()
 
 void EngineInstance::CreateDepthTexture()
 {
-    DepthTexture.destroy(gpuContext);
-    DepthTexture.create(gpuContext, swapchain.width, swapchain.height, VK_FORMAT_D32_SFLOAT,
+    if (DepthTexture.isValid())
+    {
+        resourceManager.destroyRenderTarget(DepthTexture);
+    }
+    DepthTexture = resourceManager.createRenderTarget(swapchain.width, swapchain.height, VK_FORMAT_D32_SFLOAT,
                         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
@@ -369,12 +364,11 @@ uint32_t EngineInstance::getGraphicsQueueFamily()
 
 void EngineInstance::MainLoop()
 {
-    VkSemaphore AquireSemaphone, submitSemaphore;
-    VkSemaphoreCreateInfo SemaphoreCreateInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &AquireSemaphone);
-    vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &submitSemaphore);
+    VkSemaphore acquireSemaphore = resourceManager.createSemaphore();
+    VkSemaphore submitSemaphore = resourceManager.createSemaphore();
+    VkFence renderFence = resourceManager.createFence(true);
 
-    VkCommandPool CommandPool = CreateCommandPool();
+    VkCommandPool CommandPool = resourceManager.createCommandPool(FamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
     VkCommandBufferAllocateInfo AllocateInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     AllocateInfo.commandPool = CommandPool;
     AllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -397,16 +391,14 @@ void EngineInstance::MainLoop()
     Mesh* testMesh = new Mesh();
     testMesh->loadFromObj("assets/models/untitled.obj");
 
-    Texture texture;
-    texture.load(gpuContext, "assets/models/Dragon_Bump_Col2.jpg");
-    pipeline_manager.AddTextureToGlobalDescriptorSet(texture);
+    TextureHandle texture = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
+    pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(texture));
 
-    Buffer vb, ib;
-    vb.create(gpuContext, (uint32_t)(testMesh->m_vertices.size() * sizeof(Vertex)),
+    BufferHandle vb = resourceManager.createBuffer((uint32_t)(testMesh->m_vertices.size() * sizeof(Vertex)),
               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_vertices.data());
     
-    ib.create(gpuContext, (uint32_t)(testMesh->m_indices.size() * sizeof(uint32_t)),
+    BufferHandle ib = resourceManager.createBuffer((uint32_t)(testMesh->m_indices.size() * sizeof(uint32_t)),
               VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_indices.data());
 
@@ -472,26 +464,15 @@ void EngineInstance::MainLoop()
         GpuCameraData camData;
         camData.view = camera.getViewMatrix();
         camData.proj = camera.getProjectionMatrix();
-        camera_buffer.copyDataToBuffer(&camData, sizeof(GpuCameraData));
+        resourceManager.getBuffer(camera_buffer)->copyDataToBuffer(&camData, sizeof(GpuCameraData));
 
-        // Wait for previous frame to finish on GPU
-        static VkFence renderFence = VK_NULL_HANDLE;
-        if (renderFence == VK_NULL_HANDLE) {
-            VkFenceCreateInfo fenceInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr, VK_FENCE_CREATE_SIGNALED_BIT };
-            vkCreateFence(Device, &fenceInfo, nullptr, &renderFence);
-        }
         vkWaitForFences(Device, 1, &renderFence, VK_TRUE, ~0ull);
         vkResetFences(Device, 1, &renderFence);
 
         
         uint32_t ImageIndex;
-        VkResult acquireResult = vkAcquireNextImageKHR(Device, swapchain.swapchain, ~0ull, AquireSemaphone, VK_NULL_HANDLE, &ImageIndex);
-        if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
-            CreateSwapchain();
-            continue;
-        }
-
-
+        VkResult acquireResult = vkAcquireNextImageKHR(Device, swapchain.swapchain, ~0ull, acquireSemaphore, VK_NULL_HANDLE, &ImageIndex);
+        
         vkResetCommandPool(Device, CommandPool, 0);
 
         VkCommandBufferBeginInfo BeginInfo = {
@@ -499,10 +480,11 @@ void EngineInstance::MainLoop()
         };
         vkBeginCommandBuffer(CommandBuffer, &BeginInfo);
 
+        RenderTarget* depthTexture = resourceManager.getRenderTarget(DepthTexture);
         VkImageMemoryBarrier barriers[] = {
             ImageBarrier(swapchain.images[ImageIndex], 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
-            ImageBarrier(DepthTexture.m_image, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+            ImageBarrier(depthTexture->m_image, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
         };
         vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -516,7 +498,7 @@ void EngineInstance::MainLoop()
         };
         colorAttachment.clearValue.color = {0.1f, 0.01f, 0.01f, 1.0f};
         VkRenderingAttachmentInfo depthAttachment = {
-            VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, DepthTexture.m_view,
+            VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, depthTexture->m_view,
             VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_RESOLVE_MODE_NONE, VK_NULL_HANDLE,
             VK_IMAGE_LAYOUT_UNDEFINED, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE
         };
@@ -535,6 +517,11 @@ void EngineInstance::MainLoop()
 
         for (auto* pipeline : pipelines)
         {
+            Buffer* vertexBuffer = resourceManager.getBuffer(vb);
+            Buffer* indexBuffer = resourceManager.getBuffer(ib);
+            Buffer* cameraBuffer = resourceManager.getBuffer(camera_buffer);
+            Texture* mainTexture = resourceManager.getTexture(texture);
+
             pipeline->bind(CommandBuffer);
             // Right now using a single set, with 2 bindings (global textures and samplers)
             VkDescriptorSet set = pipeline_manager.getGlobalDescriptorSet();
@@ -545,11 +532,11 @@ void EngineInstance::MainLoop()
                 if (actor->hasPipeline(pipeline))
                 {
                     // Using pointer buffers to write the gpu address of the needed buffers / also pushing the texture + sampler needed
-                    DefaultPipelineLayout push = {vb.m_gpuAddress, camera_buffer.m_gpuAddress, texture.m_bindlessIndex, 0};
+                    DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress, mainTexture->m_bindlessIndex, 0};
                     vkCmdPushConstants(CommandBuffer, pipeline->getLayout(),
                                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push),
                                        &push);
-                    vkCmdBindIndexBuffer(CommandBuffer, ib.m_buffer, 0, VK_INDEX_TYPE_UINT32);
+                    vkCmdBindIndexBuffer(CommandBuffer, indexBuffer->m_buffer, 0, VK_INDEX_TYPE_UINT32);
                     vkCmdDrawIndexed(CommandBuffer, (uint32_t)actor->getMesh()->m_indices.size(), 1, 0, 0, 0);
                 }
             }
@@ -568,7 +555,7 @@ void EngineInstance::MainLoop()
 
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         VkSubmitInfo submitInfo = {
-            VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr, 1, &AquireSemaphone, &waitStage, 1, &CommandBuffer, 1,
+            VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr, 1, &acquireSemaphore, &waitStage, 1, &CommandBuffer, 1,
             &submitSemaphore
         };
         vkQueueSubmit(gpuContext.m_graphicsQueue, 1, &submitInfo, renderFence);
@@ -579,12 +566,13 @@ void EngineInstance::MainLoop()
         vkQueuePresentKHR(gpuContext.m_graphicsQueue, &presentInfo);
     }
 
-    editorLayer.destroy(gpuContext);
+    editorLayer.destroy();
 
     if (Device != VK_NULL_HANDLE) {
         vkDeviceWaitIdle(Device);
     }
-    // lots of validation layers due to not properly clearing vulkan resources, but... fine for now....
+
+    resourceManager.cleanup();
 }
 
 int main()

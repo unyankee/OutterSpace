@@ -9,10 +9,11 @@
 namespace ToyEngine
 {
 
-    void EditorLayer::init(const GpuContext& ctx, GLFWwindow* window, VkFormat colorFormat)
+    void EditorLayer::init(const GpuContext& ctx, ResourceManager* resourceManager, GLFWwindow* window, VkFormat colorFormat)
     {
         m_window = window;
-        m_ctx = ctx;
+        m_ctx = &ctx;
+        m_resourceManager = resourceManager;
 
         // Setup Dear ImGui context
         IMGUI_CHECKVERSION();
@@ -29,8 +30,8 @@ namespace ToyEngine
         createPipeline(ctx, colorFormat);
         createFontAtlas(ctx);
 
-        m_vertexBuffer.create(ctx, 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        m_indexBuffer.create(ctx, 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        m_vertexBuffer = m_resourceManager->createBuffer(1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        m_indexBuffer = m_resourceManager->createBuffer(1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     }
 
     void EditorLayer::beginFrame()
@@ -52,19 +53,25 @@ namespace ToyEngine
         // Update vertex/index buffers
         size_t vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
         size_t indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
+        Buffer* vertexBuffer = m_resourceManager->getBuffer(m_vertexBuffer);
+        Buffer* indexBuffer = m_resourceManager->getBuffer(m_indexBuffer);
 
-        if (m_vertexBuffer.m_size < vertexSize)
+        if (vertexBuffer->m_size < vertexSize)
         {
-            m_vertexBuffer.create(m_ctx, (uint32_t)vertexSize * 2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            m_resourceManager->destroyBuffer(m_vertexBuffer);
+            m_vertexBuffer = m_resourceManager->createBuffer((uint32_t)vertexSize * 2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            vertexBuffer = m_resourceManager->getBuffer(m_vertexBuffer);
         }
 
-        if (m_indexBuffer.m_size < indexSize)
+        if (indexBuffer->m_size < indexSize)
         {
-            m_indexBuffer.create(m_ctx, (uint32_t)indexSize * 2, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            m_resourceManager->destroyBuffer(m_indexBuffer);
+            m_indexBuffer = m_resourceManager->createBuffer((uint32_t)indexSize * 2, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            indexBuffer = m_resourceManager->getBuffer(m_indexBuffer);
         }
 
-        ImDrawVert* vtxDst = (ImDrawVert*)m_vertexBuffer.map(m_ctx);
-        ImDrawIdx* idxDst = (ImDrawIdx*)m_indexBuffer.map(m_ctx);
+        ImDrawVert* vtxDst = (ImDrawVert*)vertexBuffer->map(*m_ctx);
+        ImDrawIdx* idxDst = (ImDrawIdx*)indexBuffer->map(*m_ctx);
 
         for (int n = 0; n < drawData->CmdListsCount; n++)
         {
@@ -75,8 +82,8 @@ namespace ToyEngine
             idxDst += cmdList->IdxBuffer.Size;
         }
 
-        m_vertexBuffer.unmap(m_ctx);
-        m_indexBuffer.unmap(m_ctx);
+        vertexBuffer->unmap(*m_ctx);
+        indexBuffer->unmap(*m_ctx);
 
         // Bind pipeline and descriptor sets
         m_pipeline.bind(cmd);
@@ -101,8 +108,8 @@ namespace ToyEngine
         vkCmdPushConstants(cmd, m_pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
         VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(cmd, 0, 1, &m_vertexBuffer.m_buffer, &offset);
-        vkCmdBindIndexBuffer(cmd, m_indexBuffer.m_buffer, 0, sizeof(ImDrawIdx) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer->m_buffer, &offset);
+        vkCmdBindIndexBuffer(cmd, indexBuffer->m_buffer, 0, sizeof(ImDrawIdx) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
         int vtxOffset = 0;
         int idxOffset = 0;
@@ -138,31 +145,31 @@ namespace ToyEngine
         }
     }
 
-    void EditorLayer::destroy(const GpuContext& ctx)
+    void EditorLayer::destroy()
     {
-        m_pipeline.destroy(ctx);
-        m_fontTexture.destroy(ctx);
-        m_vertexBuffer.destroy(ctx);
-        m_indexBuffer.destroy(ctx);
+        m_pipeline.destroy(*m_ctx);
+        m_resourceManager->destroyTexture(m_fontTexture);
+        m_resourceManager->destroyBuffer(m_vertexBuffer);
+        m_resourceManager->destroyBuffer(m_indexBuffer);
 
         if (m_sampler)
         {
-            vkDestroySampler(ctx.m_device, m_sampler, nullptr);
+            vkDestroySampler(m_ctx->m_device, m_sampler, nullptr);
         }
 
         if (m_descriptorPool)
         {
-            vkDestroyDescriptorPool(ctx.m_device, m_descriptorPool, nullptr);
+            vkDestroyDescriptorPool(m_ctx->m_device, m_descriptorPool, nullptr);
         }
 
         if (m_textureLayout)
         {
-            vkDestroyDescriptorSetLayout(ctx.m_device, m_textureLayout, nullptr);
+            vkDestroyDescriptorSetLayout(m_ctx->m_device, m_textureLayout, nullptr);
         }
 
         if (m_samplerLayout)
         {
-            vkDestroyDescriptorSetLayout(ctx.m_device, m_samplerLayout, nullptr);
+            vkDestroyDescriptorSetLayout(m_ctx->m_device, m_samplerLayout, nullptr);
         }
 
         ImGui_ImplGlfw_Shutdown();
@@ -216,8 +223,9 @@ namespace ToyEngine
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-        m_fontTexture.create(ctx, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-        m_fontTexture.uploadData(ctx, pixels, width * height * 4);
+        m_fontTexture = m_resourceManager->createTexture(width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        Texture* fontTexture = m_resourceManager->getTexture(m_fontTexture);
+        fontTexture->uploadData(ctx, pixels, width * height * 4);
 
         // Create sampler
         VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -255,7 +263,7 @@ namespace ToyEngine
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = m_fontTexture.m_view;
+        imageInfo.imageView = fontTexture->m_view;
 
         VkWriteDescriptorSet writes[2] = {};
         writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

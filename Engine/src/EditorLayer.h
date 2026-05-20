@@ -8,6 +8,7 @@
 
 #include "GpuResources.h"
 #include "Pipeline.h"
+#include "ResourceManager.h"
 
 namespace ToyEngine
 {
@@ -15,13 +16,13 @@ namespace ToyEngine
     class EditorLayer
     {
     public:
-        void init(const GpuContext& ctx, GLFWwindow* window, VkFormat colorFormat);
+        void init(const GpuContext& ctx, ResourceManager* resourceManager, GLFWwindow* window, VkFormat colorFormat);
 
         void beginFrame();
 
         void render(VkCommandBuffer cmd, uint32_t width, uint32_t height);
 
-        void destroy(const GpuContext& ctx);
+        void destroy();
 
     private:
         void createPipeline(const GpuContext& ctx, VkFormat colorFormat);
@@ -31,10 +32,10 @@ namespace ToyEngine
         void updateBuffers(const GpuContext& ctx, ImDrawData* drawData);
 
         Pipeline m_pipeline;
-        Texture m_fontTexture;
+        TextureHandle m_fontTexture;
 
-        Buffer m_vertexBuffer;
-        Buffer m_indexBuffer;
+        BufferHandle m_vertexBuffer;
+        BufferHandle m_indexBuffer;
 
         VkDescriptorSetLayout m_textureLayout = VK_NULL_HANDLE;
         VkDescriptorSetLayout m_samplerLayout = VK_NULL_HANDLE;
@@ -44,7 +45,8 @@ namespace ToyEngine
         VkSampler m_sampler = VK_NULL_HANDLE;
 
         GLFWwindow* m_window = nullptr;
-        GpuContext m_ctx;
+        const GpuContext* m_ctx = nullptr;
+        ResourceManager* m_resourceManager = nullptr;
     };
 
 }
