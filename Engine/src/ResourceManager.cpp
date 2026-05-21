@@ -1,5 +1,6 @@
 #include "ResourceManager.h"
 #include "Common/Common.h"
+#include "Pipeline.h"
 
 #include <utility>
 
@@ -58,6 +59,18 @@ namespace ToyEngine
         }
         m_renderTargets.clear();
         m_freeRenderTargets.clear();
+
+        for (auto& slot : m_pipelines)
+        {
+            if (slot.alive)
+            {
+                slot.resource.destroy(*m_ctx);
+                slot.alive = false;
+                ++slot.generation;
+            }
+        }
+        m_pipelines.clear();
+        m_freePipelines.clear();
 
         for (auto fence : m_fences)
         {
@@ -387,6 +400,61 @@ namespace ToyEngine
                 return;
             }
         }
+    }
+
+    PipelineHandle ResourceManager::createPipeline(const PipelineConfig& config, VkDescriptorSetLayout descriptorLayout)
+    {
+        return createPipeline(config, std::vector<VkDescriptorSetLayout>{descriptorLayout});
+    }
+
+    PipelineHandle ResourceManager::createPipeline(const PipelineConfig& config, const std::vector<VkDescriptorSetLayout>& descriptorLayouts)
+    {
+        uint32_t index = 0;
+        if (!m_freePipelines.empty())
+        {
+            index = m_freePipelines.back();
+            m_freePipelines.pop_back();
+        }
+        else
+        {
+            index = (uint32_t)m_pipelines.size();
+            m_pipelines.emplace_back();
+        }
+
+        auto& slot = m_pipelines[index];
+        slot.resource = Pipeline(config);
+        slot.resource.create(*m_ctx, descriptorLayouts);
+        slot.alive = true;
+
+        return {index, slot.generation};
+    }
+
+    Pipeline* ResourceManager::getPipeline(PipelineHandle handle)
+    {
+        if (handle.index >= m_pipelines.size()) return nullptr;
+        auto& slot = m_pipelines[handle.index];
+        if (!slot.alive || slot.generation != handle.generation) return nullptr;
+        return &slot.resource;
+    }
+
+    const Pipeline* ResourceManager::getPipeline(PipelineHandle handle) const
+    {
+        if (handle.index >= m_pipelines.size()) return nullptr;
+        auto& slot = m_pipelines[handle.index];
+        if (!slot.alive || slot.generation != handle.generation) return nullptr;
+        return &slot.resource;
+    }
+
+    void ResourceManager::destroyPipeline(PipelineHandle handle)
+    {
+        if (handle.index >= m_pipelines.size()) return;
+        auto& slot = m_pipelines[handle.index];
+        if (!slot.alive || slot.generation != handle.generation) return;
+
+        slot.resource.destroy(*m_ctx);
+        slot.alive = false;
+        ++slot.generation;
+        m_freePipelines.push_back(handle.index);
     }
 
 }

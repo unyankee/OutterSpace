@@ -16,37 +16,9 @@ struct Vertex
     float tu, tv;
 };
 
-struct Meshlet
-{
-    uint vertexOffset;
-    uint triangleOffset;
-    uint vertexCount;
-    uint triangleCount;
-
-    vec4 centerRadius;
-    vec4 coneApexCutoff;
-    vec4 coneAxis;
-};
-
-struct CameraData
-{
-    mat4 view;
-    mat4 proj;
-};
-
 layout(buffer_reference, std430) readonly buffer VertexBufferPtr
 {
     Vertex vertices[];
-};
-
-layout(buffer_reference, std430) readonly buffer CameraBufferPtr
-{
-    CameraData camera;
-};
-
-layout(buffer_reference, std430) readonly buffer MeshletBufferPtr
-{
-    Meshlet meshlets[];
 };
 
 layout(buffer_reference, std430) readonly buffer MeshletVertexBufferPtr
@@ -61,7 +33,7 @@ layout(buffer_reference, std430) readonly buffer MeshletTriangleBufferPtr
 
 taskPayloadSharedEXT struct TaskPayload
 {
-    uint meshletIndex;
+    uint meshletIndices[32];
 } payload;
 
 layout(local_size_x = 32) in;
@@ -91,7 +63,8 @@ vec3 randomColor(uint seed)
 
 void main()
 {
-    Meshlet meshlet = MeshletBufferPtr(push.meshletBufferAddress).meshlets[payload.meshletIndex];
+    uint meshletIndex = payload.meshletIndices[gl_WorkGroupID.x];
+    Meshlet meshlet = MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex];
     SetMeshOutputsEXT(meshlet.vertexCount, meshlet.triangleCount);
 
     uint localIndex = gl_LocalInvocationIndex;
@@ -103,13 +76,13 @@ void main()
         Vertex vertex = VertexBufferPtr(push.vertexBufferAddress).vertices[vertexIndex];
 
         vec3 position = vec3(vertex.vx, vertex.vy, vertex.vz);
-        gl_MeshVerticesEXT[i].gl_Position = cam.proj * cam.view * vec4(position * 128.0, 1.0); // debugging a model...
+        gl_MeshVerticesEXT[i].gl_Position = cam.proj * cam.view * vec4(position, 1.0);
 
         outUV[i] = vec2(vertex.tu, vertex.tv);
         outNormal[i] = vec3(vertex.nx, vertex.ny, vertex.nz);
 
         // since the whole meshlet is in the same group... 
-        const vec3 debugColor = subgroupBroadcastFirst(randomColor(payload.meshletIndex));
+        const vec3 debugColor = subgroupBroadcastFirst(randomColor(meshletIndex));
         outMeshletDebugColor[i] = debugColor;
     }
 

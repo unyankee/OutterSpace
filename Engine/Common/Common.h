@@ -16,6 +16,11 @@
 
 #define ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
 
+inline uint32_t divideAndRoundUp(uint32_t numerator, uint32_t denominator)
+{
+	return (numerator + denominator - 1) / denominator;
+}
+
 struct DefaultPipelineLayout
 {
 	VkDeviceAddress VertexDataPtr;

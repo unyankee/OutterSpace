@@ -86,26 +86,30 @@ namespace ToyEngine
         indexBuffer->unmap(*m_ctx);
 
         // Bind pipeline and descriptor sets
-        m_pipeline->bind(cmd);
-
-        VkDescriptorSet sets[] = {m_fontDescriptorSet, m_samplerDescriptorSet};
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getLayout(), 0, 2, sets, 0, nullptr);
-
-        VkViewport viewport = {0, 0, (float)width, (float)height, 0, 1};
-        vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-        struct PushConstants
+        Pipeline* pipeline = m_resourceManager->getPipeline(m_pipeline);
+        if (pipeline)
         {
-            float scale[2];
-            float translate[2];
-        } pc;
+            pipeline->bind(cmd);
 
-        pc.scale[0] = 2.0f / drawData->DisplaySize.x;
-        pc.scale[1] = 2.0f / drawData->DisplaySize.y;
-        pc.translate[0] = -1.0f - drawData->DisplayPos.x * pc.scale[0];
-        pc.translate[1] = -1.0f - drawData->DisplayPos.y * pc.scale[1];
+            VkDescriptorSet sets[] = {m_fontDescriptorSet, m_samplerDescriptorSet};
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 2, sets, 0, nullptr);
 
-        vkCmdPushConstants(cmd, m_pipeline->getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+            VkViewport viewport = {0, 0, (float)width, (float)height, 0, 1};
+            vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+            struct PushConstants
+            {
+                float scale[2];
+                float translate[2];
+            } pc;
+
+            pc.scale[0] = 2.0f / drawData->DisplaySize.x;
+            pc.scale[1] = 2.0f / drawData->DisplaySize.y;
+            pc.translate[0] = -1.0f - drawData->DisplayPos.x * pc.scale[0];
+            pc.translate[1] = -1.0f - drawData->DisplayPos.y * pc.scale[1];
+
+            vkCmdPushConstants(cmd, pipeline->getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+        }
 
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer->m_buffer, &offset);
@@ -147,8 +151,7 @@ namespace ToyEngine
 
     void EditorLayer::destroy()
     {
-        m_pipeline->destroy(*m_ctx);
-        delete m_pipeline;
+        m_resourceManager->destroyPipeline(m_pipeline);
         
         m_resourceManager->destroyTexture(m_fontTexture);
         m_resourceManager->destroyBuffer(m_vertexBuffer);
@@ -214,9 +217,8 @@ namespace ToyEngine
         config.m_depthWrite = false;
         config.m_blending = true;
         config.m_cullMode = VK_CULL_MODE_NONE;
-        // This is temporary, pipeline will be replaced with a pipeline handle as well...
-        m_pipeline = new Pipeline(config);
-        m_pipeline->create(ctx, {m_textureLayout, m_samplerLayout});
+        
+        m_pipeline = m_resourceManager->createPipeline(config, {m_textureLayout, m_samplerLayout});
     }
 
     void EditorLayer::createFontAtlas(const GpuContext& ctx)

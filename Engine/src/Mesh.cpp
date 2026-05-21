@@ -75,8 +75,8 @@ namespace ToyEngine
             for (unsigned int kk = 1; kk < fv - 1; kk++)
             {
                 unrolledVertices.push_back(faceVertices[0]);
-                unrolledVertices.push_back(faceVertices[kk + 1]);
                 unrolledVertices.push_back(faceVertices[kk]);
+                unrolledVertices.push_back(faceVertices[kk + 1]);
             }
 
             globalIndexCursor += fv;

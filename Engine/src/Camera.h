@@ -36,6 +36,11 @@ namespace ToyEngine
 
         void setPerspective(float fovDeg, float aspect, float nearZ, float farZ);
 
+        const Vec3& getPosition() const
+        {
+            return m_position;
+        }
+
         const Mat4& getViewMatrix() const
         {
             return m_viewMatrix;

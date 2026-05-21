@@ -16,16 +16,6 @@ layout(buffer_reference, std430) readonly buffer VertexBufferPtr
     Vertex vertices[];
 };
 
-struct CameraData {
-    mat4 view;
-    mat4 proj;
-};
-
-layout(buffer_reference, std430) readonly buffer CameraBufferPtr 
-{
-    CameraData camera;
-};
-
 layout(location = 0) out vec2 outUV;
 layout(location = 1) out vec3 outNormal;
 

@@ -18,7 +18,7 @@ namespace ToyEngine
         VkFormat m_colorFormat;
         VkFormat m_depthFormat = VK_FORMAT_D32_SFLOAT;
         VkCullModeFlags m_cullMode = VK_CULL_MODE_BACK_BIT;
-        VkFrontFace m_frontFace = VK_FRONT_FACE_CLOCKWISE;
+        VkFrontFace m_frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         bool m_depthTest = true;
         bool m_depthWrite = true;
         bool m_blending = false;
@@ -29,6 +29,7 @@ namespace ToyEngine
     class Pipeline
     {
     public:
+        Pipeline() = default;
         explicit Pipeline(const PipelineConfig& config) : m_config(config) {}
         ~Pipeline() = default;
 
@@ -52,7 +53,7 @@ namespace ToyEngine
 
         VkShaderStageFlags getPipelineStageMask( )const;
     private:
-        const PipelineConfig& m_config;
+        PipelineConfig m_config{};
         VkPipeline m_pipeline = VK_NULL_HANDLE;
         VkPipelineLayout m_layout = VK_NULL_HANDLE;
     };

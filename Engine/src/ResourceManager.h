@@ -39,6 +39,15 @@ namespace ToyEngine
         RenderTargetHandle(uint32_t index, uint32_t generation) : ResourceHandle{index, generation} {}
     };
 
+    struct PipelineHandle : ResourceHandle
+    {
+        PipelineHandle() = default;
+        PipelineHandle(uint32_t index, uint32_t generation) : ResourceHandle{index, generation} {}
+    };
+
+    class Pipeline;
+    struct PipelineConfig;
+
     class ResourceManager
     {
     public:
@@ -66,6 +75,12 @@ namespace ToyEngine
         const RenderTarget* getRenderTarget(RenderTargetHandle handle) const;
         void destroyRenderTarget(RenderTargetHandle handle);
 
+        PipelineHandle createPipeline(const PipelineConfig& config, VkDescriptorSetLayout descriptorLayout);
+        PipelineHandle createPipeline(const PipelineConfig& config, const std::vector<VkDescriptorSetLayout>& descriptorLayouts);
+        Pipeline* getPipeline(PipelineHandle handle);
+        const Pipeline* getPipeline(PipelineHandle handle) const;
+        void destroyPipeline(PipelineHandle handle);
+
         VkFence createFence(bool signaled = false);
         void destroyFence(VkFence fence);
 
@@ -90,10 +105,12 @@ namespace ToyEngine
         std::vector<ResourceSlot<Buffer>> m_buffers;
         std::vector<ResourceSlot<Texture>> m_textures;
         std::vector<ResourceSlot<RenderTarget>> m_renderTargets;
+        std::vector<ResourceSlot<Pipeline>> m_pipelines;
 
         std::vector<uint32_t> m_freeBuffers;
         std::vector<uint32_t> m_freeTextures;
         std::vector<uint32_t> m_freeRenderTargets;
+        std::vector<uint32_t> m_freePipelines;
 
         std::vector<VkFence> m_fences;
         std::vector<VkSemaphore> m_semaphores;

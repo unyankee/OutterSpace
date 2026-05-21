@@ -4,7 +4,7 @@
 #include <algorithm>
 
 #include "Mesh.h"
-#include "Pipeline.h"
+#include "ResourceManager.h"
 
 namespace ToyEngine
 {
@@ -24,21 +24,27 @@ namespace ToyEngine
         {
         }
 
-        void registerPipeline(Pipeline* pipeline)
+        void registerPipeline(PipelineHandle handle)
         {
-            m_registered_pipelines.push_back(pipeline);
+            m_registered_pipelines.push_back(handle);
         }
 
-        bool hasPipeline(Pipeline* pipeline) const
+        bool hasPipeline(PipelineHandle handle) const
         {
-            return std::find(m_registered_pipelines.begin(), m_registered_pipelines.end(), pipeline) != m_registered_pipelines.end();
+            for (auto& h : m_registered_pipelines)
+            {
+                if (h.index == handle.index && h.generation == handle.generation)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
-        void draw(VkCommandBuffer cmd, Pipeline* pipeline, VkDeviceAddress cameraAddress, uint32_t vertexBufferAddress,
+        void draw(VkCommandBuffer cmd, PipelineHandle handle, VkDeviceAddress cameraAddress, uint32_t vertexBufferAddress,
                   uint32_t textureIndex, uint32_t samplerIndex)
         {
-            // This will be expanded when we have proper push constant data per actor
-            // For now, it just binds the index buffer and draws
+            
         }
 
         Mesh* getMesh() const
@@ -54,7 +60,7 @@ namespace ToyEngine
     private:
         Mesh* m_mesh;
         Transform m_transform;
-        std::vector<Pipeline*> m_registered_pipelines;
+        std::vector<PipelineHandle> m_registered_pipelines;
     };
 
 }

@@ -35,6 +35,8 @@ struct GpuCameraData
 {
     Mat4 view;
     Mat4 proj;
+    Vec3 eyePos;
+    float padding;
 };
 
 struct Swapchain
@@ -74,7 +76,7 @@ public:
 
     BufferHandle camera_buffer;
 
-    std::vector<Pipeline*> pipelines;
+    std::vector<PipelineHandle> pipelines;
     std::vector<Actor*> actors;
     EditorLayer editorLayer;
 
@@ -405,14 +407,14 @@ void EngineInstance::MainLoop()
     config.m_colorFormat = surfaceFormat.format;
     config.m_useMeshShaders = true;
 
-    Pipeline* mainPipeline = new Pipeline(config);
-    mainPipeline->create(gpuContext, pipeline_manager.getGlobalDescriptorSetLayout());
+    PipelineHandle mainPipeline = resourceManager.createPipeline(config, pipeline_manager.getGlobalDescriptorSetLayout());
     
     pipelines.push_back(mainPipeline);
 
     Mesh* testMesh = new Mesh();
     //testMesh->loadFromObj("assets/models/sponza.obj");
-    testMesh->loadFromObj("assets/models/dragon.obj");
+    //testMesh->loadFromObj("assets/models/dragon.obj");
+    testMesh->loadFromObj("assets/models/armadillo.obj");
 
     TextureHandle texture = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
     pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(texture));
@@ -496,6 +498,7 @@ void EngineInstance::MainLoop()
         GpuCameraData camData;
         camData.view = camera.getViewMatrix();
         camData.proj = camera.getProjectionMatrix();
+        camData.eyePos = camera.getPosition();
         Buffer* cameraBufferRef = resourceManager.getBuffer(camera_buffer);
         cameraBufferRef->copyDataToBuffer(&camData, sizeof(GpuCameraData));
 
@@ -567,8 +570,11 @@ void EngineInstance::MainLoop()
         Buffer* meshletTriangles = resourceManager.getBuffer(meshletTriangleBuffer);
         Texture* mainTexture = resourceManager.getTexture(texture);
 
-        for (auto* pipeline : pipelines)
+        for (auto handle : pipelines)
         {
+            Pipeline* pipeline = resourceManager.getPipeline(handle);
+            if (!pipeline) continue;
+
             pipeline->bind(currentCommandBuffer);
             // Right now using a single set, with 2 bindings (global textures and samplers)
             VkDescriptorSet set = pipeline_manager.getGlobalDescriptorSet();
@@ -577,7 +583,7 @@ void EngineInstance::MainLoop()
             
             for (auto* actor : actors)
             {
-                if (actor->hasPipeline(pipeline))
+                if (actor->hasPipeline(handle))
                 {
                     // Using pointer buffers to write the gpu address of the needed buffers / also pushing the texture + sampler needed
                     DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
@@ -586,7 +592,8 @@ void EngineInstance::MainLoop()
                     
                     vkCmdPushConstants(currentCommandBuffer, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,sizeof(DefaultPipelineLayout),&push);
                     
-                    vkCmdDrawMeshTasksEXT(currentCommandBuffer, (uint32_t)actor->getMesh()->m_meshlets.size(), 1, 1);
+                    uint32_t meshletCount = (uint32_t)actor->getMesh()->m_meshlets.size();
+                    vkCmdDrawMeshTasksEXT(currentCommandBuffer, divideAndRoundUp(meshletCount, 32), 1, 1);
                 }
             }
         }

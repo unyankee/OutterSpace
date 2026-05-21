@@ -31,9 +31,8 @@ namespace ToyEngine
 
         void updateBuffers(const GpuContext& ctx, ImDrawData* drawData);
 
-        // TODO: This is a temporary fix while refactoring, after will promote this to the resource manager
         // that way will enforce the proper constructor (since I want config to be passed on constructor time)
-        Pipeline* m_pipeline;
+        PipelineHandle m_pipeline;
         TextureHandle m_fontTexture;
 
         BufferHandle m_vertexBuffer;
