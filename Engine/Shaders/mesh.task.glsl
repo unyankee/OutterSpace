@@ -34,15 +34,13 @@ void main()
     uint threadId = gl_LocalInvocationID.x;
     uint meshletIndex = gl_WorkGroupID.x * gl_WorkGroupSize.x + threadId;
     
-    // Check if we are within bounds of the meshlet count
-    // (Assuming we might launch slightly more workgroups than needed)
-    // For now, we'll assume the host sends enough meshlets. 
-    // Actually, we should check a push constant for totalMeshletCount if available.
-    // Since we don't have that yet, let's just do the test.
-    
-    bool visible = !coneCull(MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex].coneApexCutoff, 
+    bool visible = false;
+    if (meshletIndex < push.meshletCount)
+    {
+        visible = !coneCull(MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex].coneApexCutoff, 
                             MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex].coneAxis.xyz, 
                             CameraBufferPtr(push.cameraBufferAddress).camera.eyePos);
+    }
 
     uvec4 vote = subgroupBallot(visible);
     uint visibleCount = subgroupBallotInclusiveBitCount(vote);

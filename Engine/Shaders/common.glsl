@@ -31,6 +31,7 @@ layout(push_constant) uniform Constants
     uint64_t meshletTriangleBufferAddress;
     uint textureIndex;            
     uint samplerIndex;           
+    uint meshletCount;
 } push;
 
 layout(buffer_reference, std430) readonly buffer CameraBufferPtr

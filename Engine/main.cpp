@@ -585,14 +585,15 @@ void EngineInstance::MainLoop()
             {
                 if (actor->hasPipeline(handle))
                 {
+                    uint32_t meshletCount = (uint32_t)actor->getMesh()->m_meshlets.size();
+
                     // Using pointer buffers to write the gpu address of the needed buffers / also pushing the texture + sampler needed
                     DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
                                                   meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
-                                                  meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0};
+                                                  meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0, meshletCount};
                     
                     vkCmdPushConstants(currentCommandBuffer, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,sizeof(DefaultPipelineLayout),&push);
                     
-                    uint32_t meshletCount = (uint32_t)actor->getMesh()->m_meshlets.size();
                     vkCmdDrawMeshTasksEXT(currentCommandBuffer, divideAndRoundUp(meshletCount, 32), 1, 1);
                 }
             }

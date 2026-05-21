@@ -30,4 +30,5 @@ struct DefaultPipelineLayout
 	VkDeviceAddress MeshletTriangleDataPtr;
 	uint32_t textureIndex;
 	uint32_t samplerIndex;
+	uint32_t meshletCount;
 };
