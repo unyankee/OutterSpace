@@ -69,7 +69,8 @@ namespace ToyEngine
         VkFence createFence(bool signaled = false);
         void destroyFence(VkFence fence);
 
-        VkSemaphore createSemaphore();
+        VkSemaphore createSemaphore(uint64_t initialValue = 0);
+        VkSemaphore createBinarySemaphore();
         void destroySemaphore(VkSemaphore semaphore);
 
         VkCommandPool createCommandPool(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0);

@@ -237,28 +237,28 @@ void EngineInstance::CreateDevice()
     DeviceCreateInfo.ppEnabledExtensionNames = Extensions;
     DeviceCreateInfo.enabledExtensionCount = ARRAY_SIZE(Extensions);
 
+    VkPhysicalDeviceVulkan13Features features13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    features13.synchronization2 = VK_TRUE;
+    features13.dynamicRendering = VK_TRUE;
+    features13.maintenance4 = VK_TRUE;
+
     VkPhysicalDeviceVulkan12Features features12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     features12.descriptorBindingPartiallyBound = VK_TRUE;
     features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     features12.bufferDeviceAddress = VK_TRUE;
-
-    VkPhysicalDeviceDynamicRenderingFeatures DynamicRenderingFeatures = {
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES
-    };
-    DynamicRenderingFeatures.dynamicRendering = VK_TRUE;
+    features12.timelineSemaphore = VK_TRUE;
+    features12.pNext = &features13;
 
     VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT};
     meshShaderFeatures.taskShader = VK_TRUE;
     meshShaderFeatures.meshShader = VK_TRUE;
     meshShaderFeatures.pNext = &features12;
 
-    DynamicRenderingFeatures.pNext = &meshShaderFeatures;
-
     VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     features2.features.shaderInt64 = VK_TRUE;
-    features2.pNext = &DynamicRenderingFeatures;
+    features2.pNext = &meshShaderFeatures;
     DeviceCreateInfo.pNext = &features2;
 
     VK_CHECK(vkCreateDevice(PhysicalDevice, &DeviceCreateInfo, nullptr, &Device));
@@ -370,17 +370,29 @@ uint32_t EngineInstance::getGraphicsQueueFamily()
 
 void EngineInstance::MainLoop()
 {
-    VkSemaphore acquireSemaphore = resourceManager.createSemaphore();
-    VkSemaphore submitSemaphore = resourceManager.createSemaphore();
-    VkFence renderFence = resourceManager.createFence(true);
+    const uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+    VkSemaphore acquireSemaphores[MAX_FRAMES_IN_FLIGHT];
+    VkSemaphore submitSemaphores[MAX_FRAMES_IN_FLIGHT];
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        acquireSemaphores[i] = resourceManager.createBinarySemaphore();
+        submitSemaphores[i] = resourceManager.createBinarySemaphore();
+    }
 
-    VkCommandPool CommandPool = resourceManager.createCommandPool(FamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-    VkCommandBufferAllocateInfo AllocateInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-    AllocateInfo.commandPool = CommandPool;
-    AllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    AllocateInfo.commandBufferCount = 1;
-    VkCommandBuffer CommandBuffer;
-    vkAllocateCommandBuffers(Device, &AllocateInfo, &CommandBuffer);
+    VkSemaphore timelineSemaphore = resourceManager.createSemaphore(0);
+    uint64_t timelineValue = 0;
+
+    VkCommandPool commandPools[MAX_FRAMES_IN_FLIGHT];
+    VkCommandBuffer commandBuffers[MAX_FRAMES_IN_FLIGHT];
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        commandPools[i] = resourceManager.createCommandPool(FamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+        VkCommandBufferAllocateInfo AllocateInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        AllocateInfo.commandPool = commandPools[i];
+        AllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        AllocateInfo.commandBufferCount = 1;
+        vkAllocateCommandBuffers(Device, &AllocateInfo, &commandBuffers[i]);
+    }
 
     VkShaderModule MeshTask = Pipeline::loadShader(Device, "Shaders/mesh.task.spv");
     VkShaderModule MeshMesh = Pipeline::loadShader(Device, "Shaders/mesh.mesh.spv");
@@ -487,19 +499,31 @@ void EngineInstance::MainLoop()
         Buffer* cameraBufferRef = resourceManager.getBuffer(camera_buffer);
         cameraBufferRef->copyDataToBuffer(&camData, sizeof(GpuCameraData));
 
-        vkWaitForFences(Device, 1, &renderFence, VK_TRUE, ~0ull);
-        vkResetFences(Device, 1, &renderFence);
+        if (timelineValue >= MAX_FRAMES_IN_FLIGHT)
+        {
+            VkSemaphoreWaitInfo waitInfo{VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
+            waitInfo.semaphoreCount = 1;
+            waitInfo.pSemaphores = &timelineSemaphore;
+            uint64_t waitValue = timelineValue - (MAX_FRAMES_IN_FLIGHT - 1);
+            waitInfo.pValues = &waitValue;
+            vkWaitSemaphores(Device, &waitInfo, ~0ull);
+        }
 
-        
+        uint32_t frameIndex = timelineValue % MAX_FRAMES_IN_FLIGHT;
+        VkSemaphore acquireSemaphore = acquireSemaphores[frameIndex];
+        VkSemaphore submitSemaphore = submitSemaphores[frameIndex];
+        VkCommandPool currentCommandPool = commandPools[frameIndex];
+        VkCommandBuffer currentCommandBuffer = commandBuffers[frameIndex];
+
         uint32_t ImageIndex;
         VkResult acquireResult = vkAcquireNextImageKHR(Device, swapchain.swapchain, ~0ull, acquireSemaphore, VK_NULL_HANDLE, &ImageIndex);
         
-        vkResetCommandPool(Device, CommandPool, 0);
+        vkResetCommandPool(Device, currentCommandPool, 0);
 
         VkCommandBufferBeginInfo BeginInfo = {
             VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
         };
-        vkBeginCommandBuffer(CommandBuffer, &BeginInfo);
+        vkBeginCommandBuffer(currentCommandBuffer, &BeginInfo);
 
         RenderTarget* depthTexture = resourceManager.getRenderTarget(DepthTexture);
         VkImageMemoryBarrier barriers[] = {
@@ -508,7 +532,7 @@ void EngineInstance::MainLoop()
             ImageBarrier(depthTexture->m_image, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
         };
-        vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                              VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                              0, 0, nullptr, 0, nullptr, 2, barriers);
 
@@ -529,12 +553,12 @@ void EngineInstance::MainLoop()
             VK_STRUCTURE_TYPE_RENDERING_INFO, nullptr, 0, {{0, 0}, {swapchain.width, swapchain.height}}, 1, 0, 1,
             &colorAttachment, &depthAttachment, nullptr
         };
-        vkCmdBeginRendering(CommandBuffer, &renderingInfo);
+        vkCmdBeginRendering(currentCommandBuffer, &renderingInfo);
 
         VkViewport viewport = {0, (float)swapchain.height, (float)swapchain.width, -(float)swapchain.height, 0, 1};
-        vkCmdSetViewport(CommandBuffer, 0, 1, &viewport);
+        vkCmdSetViewport(currentCommandBuffer, 0, 1, &viewport);
         VkRect2D scissor = {{0, 0}, {swapchain.width, swapchain.height}};
-        vkCmdSetScissor(CommandBuffer, 0, 1, &scissor);
+        vkCmdSetScissor(currentCommandBuffer, 0, 1, &scissor);
 
         Buffer* vertexBuffer = resourceManager.getBuffer(vb);
         Buffer* cameraBuffer = resourceManager.getBuffer(camera_buffer);
@@ -545,11 +569,11 @@ void EngineInstance::MainLoop()
 
         for (auto* pipeline : pipelines)
         {
-            pipeline->bind(CommandBuffer);
+            pipeline->bind(currentCommandBuffer);
             // Right now using a single set, with 2 bindings (global textures and samplers)
             VkDescriptorSet set = pipeline_manager.getGlobalDescriptorSet();
             // This is the set with the global pool of textures and samplers
-            vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &set,0, nullptr);
+            vkCmdBindDescriptorSets(currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &set,0, nullptr);
             
             for (auto* actor : actors)
             {
@@ -560,31 +584,53 @@ void EngineInstance::MainLoop()
                                                   meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
                                                   meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0};
                     
-                    vkCmdPushConstants(CommandBuffer, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,sizeof(DefaultPipelineLayout),&push);
+                    vkCmdPushConstants(currentCommandBuffer, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,sizeof(DefaultPipelineLayout),&push);
                     
-                    vkCmdDrawMeshTasksEXT(CommandBuffer, (uint32_t)actor->getMesh()->m_meshlets.size(), 1, 1);
+                    vkCmdDrawMeshTasksEXT(currentCommandBuffer, (uint32_t)actor->getMesh()->m_meshlets.size(), 1, 1);
                 }
             }
         }
         
-        editorLayer.render(CommandBuffer, swapchain.width, swapchain.height);
-        vkCmdEndRendering(CommandBuffer);
+        editorLayer.render(currentCommandBuffer, swapchain.width, swapchain.height);
+        vkCmdEndRendering(currentCommandBuffer);
 
         VkImageMemoryBarrier presentBarrier = ImageBarrier(swapchain.images[ImageIndex],
                                                            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         
-        vkCmdPipelineBarrier(CommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                              VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &presentBarrier);
-        vkEndCommandBuffer(CommandBuffer);
+        vkEndCommandBuffer(currentCommandBuffer);
 
-        VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo submitInfo = {
-            VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr, 1, &acquireSemaphore, &waitStage, 1, &CommandBuffer, 1,
-            &submitSemaphore
-        };
-        vkQueueSubmit(gpuContext.m_graphicsQueue, 1, &submitInfo, renderFence);
+        timelineValue++;
+
+        VkSemaphoreSubmitInfo waitSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+        waitSemaphoreInfo.semaphore = acquireSemaphore;
+        waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        VkCommandBufferSubmitInfo cmdBufferInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+        cmdBufferInfo.commandBuffer = currentCommandBuffer;
+
+        VkSemaphoreSubmitInfo signalSemaphores[2] = {};
+        signalSemaphores[0].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+        signalSemaphores[0].semaphore = submitSemaphore;
+        signalSemaphores[0].stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        
+        signalSemaphores[1].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+        signalSemaphores[1].semaphore = timelineSemaphore;
+        signalSemaphores[1].value = timelineValue;
+        signalSemaphores[1].stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+
+        VkSubmitInfo2 submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+        submitInfo.waitSemaphoreInfoCount = 1;
+        submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+        submitInfo.commandBufferInfoCount = 1;
+        submitInfo.pCommandBufferInfos = &cmdBufferInfo;
+        submitInfo.signalSemaphoreInfoCount = 2;
+        submitInfo.pSignalSemaphoreInfos = signalSemaphores;
+
+        vkQueueSubmit2(gpuContext.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
         
         VkPresentInfoKHR presentInfo = {
             VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, nullptr, 1, &submitSemaphore, 1, &swapchain.swapchain, &ImageIndex

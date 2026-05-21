@@ -312,7 +312,23 @@ namespace ToyEngine
         }
     }
 
-    VkSemaphore ResourceManager::createSemaphore()
+    VkSemaphore ResourceManager::createSemaphore(uint64_t initialValue)
+    {
+        VkSemaphoreTypeCreateInfo semaphoreTypeInfo{VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO};
+        semaphoreTypeInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+        semaphoreTypeInfo.initialValue = initialValue;
+
+        VkSemaphoreCreateInfo semaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        semaphoreInfo.pNext = &semaphoreTypeInfo;
+
+        VkSemaphore semaphore = VK_NULL_HANDLE;
+        VK_CHECK(vkCreateSemaphore(m_ctx->m_device, &semaphoreInfo, nullptr, &semaphore));
+        m_semaphores.push_back(semaphore);
+
+        return semaphore;
+    }
+
+    VkSemaphore ResourceManager::createBinarySemaphore()
     {
         VkSemaphoreCreateInfo semaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
         VkSemaphore semaphore = VK_NULL_HANDLE;
