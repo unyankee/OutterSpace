@@ -3,6 +3,9 @@
 namespace ToyEngine
 {
 
+    constexpr float DefaultFarplane = 3000.0f;
+    constexpr float DefaultNearPlane = 0.1f;
+    
     struct Vec3
     {
         float m_x;
@@ -34,7 +37,7 @@ namespace ToyEngine
 
         void setTarget(Vec3 target);
 
-        void setPerspective(float fovDeg, float aspect, float nearZ, float farZ);
+        void setPerspective(float fovDeg, float aspect, float nearZ = DefaultNearPlane, float farZ = DefaultFarplane);
 
         const Vec3& getPosition() const
         {

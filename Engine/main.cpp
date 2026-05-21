@@ -193,7 +193,7 @@ void EngineInstance::InitInstance()
     gpuContext.m_commandPool = resourceManager.createCommandPool(FamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
     pipeline_manager.init(Device);
 
-    camera.setPerspective(70.f, (float)StartupWidthResolution / (float)StartupHeightResolution, 0.1f, 1000.f);
+    camera.setPerspective(70.f, (float)StartupWidthResolution / (float)StartupHeightResolution);
     camera.update();
 
     camera_buffer = resourceManager.createBuffer(sizeof(GpuCameraData),
@@ -412,9 +412,7 @@ void EngineInstance::MainLoop()
     pipelines.push_back(mainPipeline);
 
     Mesh* testMesh = new Mesh();
-    //testMesh->loadFromObj("assets/models/sponza.obj");
-    //testMesh->loadFromObj("assets/models/dragon.obj");
-    testMesh->loadFromObj("assets/models/armadillo.obj");
+    testMesh->loadFromObj("assets/models/sponza.obj");
 
     TextureHandle texture = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
     pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(texture));
@@ -490,7 +488,7 @@ void EngineInstance::MainLoop()
         if (swapchain.width != (uint32_t)Width || swapchain.height != (uint32_t)Height)
         {
             CreateSwapchain();
-            camera.setPerspective(70.f, (float)Width / (float)Height, 0.1f, 1000.f);
+            camera.setPerspective(70.f, (float)Width / (float)Height);
         }
 
         // Update camera data on GPU

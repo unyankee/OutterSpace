@@ -72,15 +72,6 @@ namespace ToyEngine
         m_pipelines.clear();
         m_freePipelines.clear();
 
-        for (auto fence : m_fences)
-        {
-            if (fence != VK_NULL_HANDLE)
-            {
-                vkDestroyFence(m_ctx->m_device, fence, nullptr);
-            }
-        }
-        m_fences.clear();
-
         for (auto semaphore : m_semaphores)
         {
             if (semaphore != VK_NULL_HANDLE)
@@ -289,40 +280,6 @@ namespace ToyEngine
         slot.alive = false;
         ++slot.generation;
         m_freeRenderTargets.push_back(handle.index);
-    }
-
-    VkFence ResourceManager::createFence(bool signaled)
-    {
-        VkFenceCreateInfo fenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-        if (signaled)
-        {
-            fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        }
-
-        VkFence fence = VK_NULL_HANDLE;
-        VK_CHECK(vkCreateFence(m_ctx->m_device, &fenceInfo, nullptr, &fence));
-        m_fences.push_back(fence);
-
-        return fence;
-    }
-
-    void ResourceManager::destroyFence(VkFence fence)
-    {
-        if (fence == VK_NULL_HANDLE)
-        {
-            return;
-        }
-
-        for (uint32_t i = 0; i < m_fences.size(); ++i)
-        {
-            if (m_fences[i] == fence)
-            {
-                vkDestroyFence(m_ctx->m_device, fence, nullptr);
-                m_fences[i] = m_fences.back();
-                m_fences.pop_back();
-                return;
-            }
-        }
     }
 
     VkSemaphore ResourceManager::createSemaphore(uint64_t initialValue)

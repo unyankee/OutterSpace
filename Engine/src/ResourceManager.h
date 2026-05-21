@@ -81,9 +81,6 @@ namespace ToyEngine
         const Pipeline* getPipeline(PipelineHandle handle) const;
         void destroyPipeline(PipelineHandle handle);
 
-        VkFence createFence(bool signaled = false);
-        void destroyFence(VkFence fence);
-
         VkSemaphore createSemaphore(uint64_t initialValue = 0);
         VkSemaphore createBinarySemaphore();
         void destroySemaphore(VkSemaphore semaphore);
@@ -112,7 +109,6 @@ namespace ToyEngine
         std::vector<uint32_t> m_freeRenderTargets;
         std::vector<uint32_t> m_freePipelines;
 
-        std::vector<VkFence> m_fences;
         std::vector<VkSemaphore> m_semaphores;
         std::vector<VkCommandPool> m_commandPools;
     };
