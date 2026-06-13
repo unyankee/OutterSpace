@@ -23,6 +23,7 @@
 #include "src/Pipeline.h"
 #include "src/Actor.h"
 #include "src/Scene.h"
+#include "src/Pass.h"
 #include "src/EditorLayer.h"
 #include <imgui.h>
 
@@ -440,6 +441,45 @@ void EngineInstance::MainLoop()
     dragonActor.registerPipeline(mainPipeline);
     actors.push_back(new Actor(dragonActor));
 
+    // Define the main rendering pass
+    Pass mainPass;
+    mainPass.name = "MainForwardPass";
+    mainPass.pipeline = mainPipeline;
+    mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, texture, this](VkCommandBuffer cmd, const Pass& pass, PassContext& ctx) {
+        Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
+        if (!pipeline)
+        {
+            return;  
+        } 
+
+        pipeline->bind(cmd);
+        VkDescriptorSet set = ctx.pipelineManager.getGlobalDescriptorSet();
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &set, 0, nullptr);
+
+        // right now, single pass that iterates over all actors, gets their meshes and renders them 1 by 1
+        auto view = ctx.scene.getRegistry().view<Mesh*>();
+        for (auto entity : view)
+        {
+            Actor actor(entity, &ctx.scene);
+            Mesh* mesh = actor.getComponent<Mesh*>();
+            uint32_t meshletCount = (uint32_t)mesh->m_meshlets.size();
+
+            Buffer* vertexBuffer = ctx.resourceManager.getBuffer(vb);
+            Buffer* cameraBuffer = ctx.resourceManager.getBuffer(camera_buffer);
+            Buffer* meshlets = ctx.resourceManager.getBuffer(meshletBuffer);
+            Buffer* meshletVertices = ctx.resourceManager.getBuffer(meshletVertexBuffer);
+            Buffer* meshletTriangles = ctx.resourceManager.getBuffer(meshletTriangleBuffer);
+            Texture* mainTexture = ctx.resourceManager.getTexture(texture);
+
+            DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
+                                          meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
+                                          meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0, meshletCount};
+
+            vkCmdPushConstants(cmd, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0, sizeof(DefaultPipelineLayout), &push);
+            vkCmdDrawMeshTasksEXT(cmd, divideAndRoundUp(meshletCount, 32), 1, 1);
+        }
+    };
+
     double lastFrame = glfwGetTime();
     while (!glfwWindowShouldClose(window))
     {
@@ -564,41 +604,9 @@ void EngineInstance::MainLoop()
         VkRect2D scissor = {{0, 0}, {swapchain.width, swapchain.height}};
         vkCmdSetScissor(currentCommandBuffer, 0, 1, &scissor);
 
-        Buffer* vertexBuffer = resourceManager.getBuffer(vb);
-        Buffer* cameraBuffer = resourceManager.getBuffer(camera_buffer);
-        Buffer* meshlets = resourceManager.getBuffer(meshletBuffer);
-        Buffer* meshletVertices = resourceManager.getBuffer(meshletVertexBuffer);
-        Buffer* meshletTriangles = resourceManager.getBuffer(meshletTriangleBuffer);
-        Texture* mainTexture = resourceManager.getTexture(texture);
-
-        for (auto handle : pipelines)
-        {
-            Pipeline* pipeline = resourceManager.getPipeline(handle);
-            if (!pipeline) continue;
-
-            pipeline->bind(currentCommandBuffer);
-            // Right now using a single set, with 2 bindings (global textures and samplers)
-            VkDescriptorSet set = pipeline_manager.getGlobalDescriptorSet();
-            // This is the set with the global pool of textures and samplers
-            vkCmdBindDescriptorSets(currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &set,0, nullptr);
-            
-            for (auto* actor : actors)
-            {
-                if (actor->hasPipeline(handle))
-                {
-                    uint32_t meshletCount = (uint32_t)actor->getMesh()->m_meshlets.size();
-
-                    // Using pointer buffers to write the gpu address of the needed buffers / also pushing the texture + sampler needed
-                    DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
-                                                  meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
-                                                  meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0, meshletCount};
-                    
-                    vkCmdPushConstants(currentCommandBuffer, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,sizeof(DefaultPipelineLayout),&push);
-                    
-                    vkCmdDrawMeshTasksEXT(currentCommandBuffer, divideAndRoundUp(meshletCount, 32), 1, 1);
-                }
-            }
-        }
+        // Execute the main pass
+        PassContext ctx = { resourceManager, pipeline_manager, scene };
+        mainPass.execute(currentCommandBuffer, mainPass, ctx);
         
         editorLayer.render(currentCommandBuffer, swapchain.width, swapchain.height);
         vkCmdEndRendering(currentCommandBuffer);
@@ -647,12 +655,12 @@ void EngineInstance::MainLoop()
         vkQueuePresentKHR(gpuContext.m_graphicsQueue, &presentInfo);
     }
 
-    editorLayer.destroy();
 
     if (Device != VK_NULL_HANDLE) {
         vkDeviceWaitIdle(Device);
     }
 
+    editorLayer.destroy();
     resourceManager.cleanup();
 }
 

@@ -16,7 +16,15 @@
 
 #define ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
 
-inline uint32_t divideAndRoundUp(uint32_t numerator, uint32_t denominator)
+#if defined(_MSC_VER)
+#define TOY_FORCEINLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define TOY_FORCEINLINE __attribute__((always_inline)) inline
+#else
+#define TOY_FORCEINLINE inline
+#endif
+
+TOY_FORCEINLINE uint32_t divideAndRoundUp(uint32_t numerator, uint32_t denominator)
 {
 	return (numerator + denominator - 1) / denominator;
 }

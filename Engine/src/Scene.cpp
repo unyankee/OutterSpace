@@ -49,22 +49,5 @@ namespace ToyEngine
         return m_scene->getRegistry();
     }
 
-    Mesh* Actor::getMesh() const
-    {
-        if (m_scene->getRegistry().all_of<Mesh*>(m_entity))
-        {
-            return m_scene->getRegistry().get<Mesh*>(m_entity);
-        }
-        return nullptr;
-    }
-
-    Transform& Actor::getTransform()
-    {
-        return m_scene->getRegistry().get<Transform>(m_entity);
-    }
-
-    const Transform& Actor::getTransform() const
-    {
-        return m_scene->getRegistry().get<Transform>(m_entity);
-    }
 }
+
