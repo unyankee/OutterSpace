@@ -32,37 +32,37 @@ namespace ToyEngine
         const entt::registry& getRegistry() const;
 
         template<typename T, typename... Args>
-        TOY_FORCEINLINE T& addComponent(Args&&... args)
+        FORCEINLINE T& addComponent(Args&&... args)
         {
             return getRegistry().emplace<T>(m_entity, std::forward<Args>(args)...);
         }
 
         template<typename T>
-        TOY_FORCEINLINE T& getComponent()
+        FORCEINLINE T& getComponent()
         {
             return getRegistry().get<T>(m_entity);
         }
 
         template<typename T>
-        TOY_FORCEINLINE const T& getComponent() const
+        FORCEINLINE const T& getComponent() const
         {
             return getRegistry().get<T>(m_entity);
         }
 
         template<typename T>
-        TOY_FORCEINLINE bool hasComponent() const
+        FORCEINLINE bool hasComponent() const
         {
             return getRegistry().all_of<T>(m_entity);
         }
 
         template<typename T>
-        TOY_FORCEINLINE void removeComponent()
+        FORCEINLINE void removeComponent()
         {
             getRegistry().remove<T>(m_entity);
         }
 
-        TOY_FORCEINLINE bool isValid() const { return m_entity != entt::null && m_scene != nullptr; }
-        TOY_FORCEINLINE entt::entity getEntity() const { return m_entity; }
+        FORCEINLINE bool isValid() const { return m_entity != entt::null && m_scene != nullptr; }
+        FORCEINLINE entt::entity getEntity() const { return m_entity; }
 
     private:
         entt::entity m_entity = entt::null;

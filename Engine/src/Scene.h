@@ -21,8 +21,8 @@ namespace ToyEngine
         Actor createActor();
         void destroyActor(Actor actor);
 
-        TOY_FORCEINLINE entt::registry& getRegistry() { return m_registry; }
-        TOY_FORCEINLINE const entt::registry& getRegistry() const { return m_registry; }
+        FORCEINLINE entt::registry& getRegistry() { return m_registry; }
+        FORCEINLINE const entt::registry& getRegistry() const { return m_registry; }
 
     private:
         entt::registry m_registry;
