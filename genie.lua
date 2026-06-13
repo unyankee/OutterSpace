@@ -26,6 +26,7 @@ project "Engine"
         "extern/volk",
         "extern/glfw/glfw-3.4/include",
         "extern/imgui",
+        "extern/entt/src",
         "$(VULKAN_SDK)/include"
     }
 

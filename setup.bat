@@ -44,6 +44,19 @@ if not exist "extern\stb" (
     echo [INFO] STB already exists in extern/stb
 )
 
+:: 1.6. Download EnTT
+echo [1.6/5] Downloading EnTT...
+if not exist "extern\entt" (
+    git clone --depth 1 https://github.com/skypjack/entt.git extern\entt
+    if %errorlevel% neq 0 (
+        echo [WARNING] Failed to clone EnTT. You might need to download it manually.
+    ) else (
+        echo [INFO] EnTT cloned successfully.
+    )
+) else (
+    echo [INFO] EnTT already exists in extern/entt
+)
+
 :: 2. Find/Verify Vulkan SDK
 echo [2/5] Verifying Vulkan SDK...
 if not defined VULKAN_SDK (

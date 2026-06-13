@@ -22,6 +22,7 @@
 #include "src/ResourceManager.h"
 #include "src/Pipeline.h"
 #include "src/Actor.h"
+#include "src/Scene.h"
 #include "src/EditorLayer.h"
 #include <imgui.h>
 
@@ -76,6 +77,7 @@ public:
 
     BufferHandle camera_buffer;
 
+    Scene scene;
     std::vector<PipelineHandle> pipelines;
     std::vector<Actor*> actors;
     EditorLayer editorLayer;
@@ -433,9 +435,10 @@ void EngineInstance::MainLoop()
               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletTriangles.data());
 
-    Actor* dragonActor = new Actor(testMesh);
-    dragonActor->registerPipeline(mainPipeline);
-    actors.push_back(dragonActor);
+    Actor dragonActor = scene.createActor();
+    dragonActor.addComponent<Mesh*>(testMesh);
+    dragonActor.registerPipeline(mainPipeline);
+    actors.push_back(new Actor(dragonActor));
 
     double lastFrame = glfwGetTime();
     while (!glfwWindowShouldClose(window))

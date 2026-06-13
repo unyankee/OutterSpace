@@ -43,6 +43,9 @@
     <ClInclude Include="..\Engine\src\Mesh.h">
       <Filter>Source\src</Filter>
     </ClInclude>
+    <ClInclude Include="..\Engine\src\Pass.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
     <ClInclude Include="..\Engine\src\Pipeline.h">
       <Filter>Source\src</Filter>
     </ClInclude>
@@ -50,6 +53,9 @@
       <Filter>Source\src</Filter>
     </ClInclude>
     <ClInclude Include="..\Engine\src\ResourceManager.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Engine\src\Scene.h">
       <Filter>Source\src</Filter>
     </ClInclude>
     <ClInclude Include="..\Engine\Common\Common.h">
@@ -78,6 +84,9 @@
     <ClCompile Include="..\Engine\src\Mesh.cpp">
       <Filter>Source\src</Filter>
     </ClCompile>
+    <ClCompile Include="..\Engine\src\Pass.cpp">
+      <Filter>Source\src</Filter>
+    </ClCompile>
     <ClCompile Include="..\Engine\src\Pipeline.cpp">
       <Filter>Source\src</Filter>
     </ClCompile>
@@ -85,6 +94,9 @@
       <Filter>Source\src</Filter>
     </ClCompile>
     <ClCompile Include="..\Engine\src\ResourceManager.cpp">
+      <Filter>Source\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\Scene.cpp">
       <Filter>Source\src</Filter>
     </ClCompile>
     <ClCompile Include="..\extern\volk\volk.c">
