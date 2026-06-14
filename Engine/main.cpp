@@ -67,6 +67,7 @@ public:
     uint32_t swapchainImagesCount = 0;
 
     Swapchain swapchain;
+    RenderTargetHandle ColorTextureHandle;
     RenderTargetHandle DepthTextureHandle;
 
     VkPhysicalDeviceMemoryProperties PhysicalMemoryProperties;
@@ -325,7 +326,7 @@ void EngineInstance::CreateSwapchain()
     SwapchainCreateInfo.imageExtent.width = Width;
     SwapchainCreateInfo.imageExtent.height = Height;
     SwapchainCreateInfo.imageArrayLayers = 1;
-    SwapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    SwapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     SwapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     SwapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     SwapchainCreateInfo.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
@@ -355,6 +356,12 @@ void EngineInstance::CreateSwapchain()
     swapchain.width = Width;
     swapchain.height = Height;
     CreateDepthTexture();
+    
+    if (ColorTextureHandle.isValid())
+    {
+        resourceManager.destroyRenderTarget(ColorTextureHandle);
+    }
+    ColorTextureHandle = resourceManager.createRenderTarget(swapchain.width, swapchain.height, surfaceFormat.format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 uint32_t EngineInstance::getGraphicsQueueFamily()
@@ -568,9 +575,11 @@ void EngineInstance::MainLoop()
         };
         vkBeginCommandBuffer(currentCommandBuffer, &BeginInfo);
 
+        RenderTarget* colorTexture = resourceManager.getRenderTarget(ColorTextureHandle);
         RenderTarget* depthTexture = resourceManager.getRenderTarget(DepthTextureHandle);
+
         VkImageMemoryBarrier barriers[] = {
-            ImageBarrier(swapchain.images[ImageIndex], 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            ImageBarrier(colorTexture->m_image, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
             ImageBarrier(depthTexture->m_image, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
@@ -579,10 +588,8 @@ void EngineInstance::MainLoop()
                              VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                              0, 0, nullptr, 0, nullptr, 2, barriers);
 
-        
-        // Define render pass attachments
         VkRenderingAttachmentInfo colorAttachment = {
-            VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, swapchain.imageviews[ImageIndex],
+            VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, colorTexture->m_view,
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_RESOLVE_MODE_NONE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED,
             VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE
         };
@@ -613,13 +620,24 @@ void EngineInstance::MainLoop()
         
         vkCmdEndRendering(currentCommandBuffer);
 
-        VkImageMemoryBarrier presentBarrier = ImageBarrier(swapchain.images[ImageIndex],
-                                                           VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
-                                                           VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        VkImageCopy copyRegion{};
+        copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copyRegion.srcOffset = {0, 0, 0};
+        copyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copyRegion.dstOffset = {0, 0, 0};
+        copyRegion.extent = {swapchain.width, swapchain.height, 1};
+
+        VkImageMemoryBarrier srcBarrier = ImageBarrier(colorTexture->m_image, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        VkImageMemoryBarrier dstBarrier = ImageBarrier(swapchain.images[ImageIndex], 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &srcBarrier);
+        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &dstBarrier);
+
+        vkCmdCopyImage(currentCommandBuffer, colorTexture->m_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchain.images[ImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+        VkImageMemoryBarrier presentBarrier = ImageBarrier(swapchain.images[ImageIndex], VK_ACCESS_TRANSFER_WRITE_BIT, 0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         
-        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &presentBarrier);
+        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &presentBarrier);
         
         vkEndCommandBuffer(currentCommandBuffer);
 
