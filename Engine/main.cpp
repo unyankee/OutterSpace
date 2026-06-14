@@ -100,7 +100,6 @@ public:
 
     static VkImageMemoryBarrier ImageBarrier(VkImage Image, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
                                              VkImageLayout oldLayout, VkImageLayout newLayout);
-
 };
 
 VkBool32 DebugReporterVulkan(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object,
@@ -202,8 +201,10 @@ void EngineInstance::InitInstance()
     camera.update();
 
     camera_buffer = resourceManager.createBuffer(sizeof(GpuCameraData),
-                         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     CreateSurface();
     GetSwapchainFormat();
@@ -258,7 +259,9 @@ void EngineInstance::CreateDevice()
     features12.timelineSemaphore = VK_TRUE;
     features12.pNext = &features13;
 
-    VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT};
+    VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT
+    };
     meshShaderFeatures.taskShader = VK_TRUE;
     meshShaderFeatures.meshShader = VK_TRUE;
     meshShaderFeatures.pNext = &features12;
@@ -304,7 +307,8 @@ void EngineInstance::CreateDepthTexture()
         resourceManager.destroyRenderTarget(DepthTextureHandle);
     }
     DepthTextureHandle = resourceManager.createRenderTarget(swapchain.width, swapchain.height, VK_FORMAT_D32_SFLOAT,
-                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
+                                                            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                                            VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 void EngineInstance::CreateSwapchain()
@@ -334,7 +338,10 @@ void EngineInstance::CreateSwapchain()
 
     VkSwapchainKHR LocalSwapchain;
     VK_CHECK(vkCreateSwapchainKHR(Device, &SwapchainCreateInfo, nullptr, &LocalSwapchain));
-    if (swapchain.swapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR(Device, swapchain.swapchain, nullptr);
+    if (swapchain.swapchain != VK_NULL_HANDLE)
+    {
+        vkDestroySwapchainKHR(Device, swapchain.swapchain, nullptr);
+    }
 
     swapchain.swapchain = LocalSwapchain;
     vkGetSwapchainImagesKHR(Device, swapchain.swapchain, &swapchainImagesCount, nullptr);
@@ -356,12 +363,15 @@ void EngineInstance::CreateSwapchain()
     swapchain.width = Width;
     swapchain.height = Height;
     CreateDepthTexture();
-    
+
     if (ColorTextureHandle.isValid())
     {
         resourceManager.destroyRenderTarget(ColorTextureHandle);
     }
-    ColorTextureHandle = resourceManager.createRenderTarget(swapchain.width, swapchain.height, surfaceFormat.format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+    ColorTextureHandle = resourceManager.createRenderTarget(swapchain.width, swapchain.height, surfaceFormat.format,
+                                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                                            VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 uint32_t EngineInstance::getGraphicsQueueFamily()
@@ -418,8 +428,9 @@ void EngineInstance::MainLoop()
     config.m_colorFormat = surfaceFormat.format;
     config.m_useMeshShaders = true;
 
-    PipelineHandle mainPipeline = resourceManager.createPipeline(config, pipeline_manager.getGlobalDescriptorSetLayout());
-    
+    PipelineHandle mainPipeline = resourceManager.createPipeline(
+        config, pipeline_manager.getGlobalDescriptorSetLayout());
+
     pipelines.push_back(mainPipeline);
 
     Mesh* testMesh = new Mesh();
@@ -429,61 +440,71 @@ void EngineInstance::MainLoop()
     pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(texture));
 
     BufferHandle vb = resourceManager.createBuffer((uint32_t)(testMesh->m_vertices.size() * sizeof(Vertex)),
-              VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_vertices.data());
-    
+                                                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_vertices.data());
+
     BufferHandle meshletBuffer = resourceManager.createBuffer((uint32_t)(testMesh->m_meshlets.size() * sizeof(Meshlet)),
-              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshlets.data());
+                                                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                                              testMesh->m_meshlets.data());
 
-    BufferHandle meshletVertexBuffer = resourceManager.createBuffer((uint32_t)(testMesh->m_meshletVertices.size() * sizeof(uint32_t)),
-              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletVertices.data());
+    BufferHandle meshletVertexBuffer = resourceManager.createBuffer(
+        (uint32_t)(testMesh->m_meshletVertices.size() * sizeof(uint32_t)),
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletVertices.data());
 
-    BufferHandle meshletTriangleBuffer = resourceManager.createBuffer((uint32_t)(testMesh->m_meshletTriangles.size() * sizeof(uint32_t)),
-              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletTriangles.data());
+    BufferHandle meshletTriangleBuffer = resourceManager.createBuffer(
+        (uint32_t)(testMesh->m_meshletTriangles.size() * sizeof(uint32_t)),
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletTriangles.data());
 
     Actor dragonActor = scene.createActor();
     dragonActor.addComponent<Mesh*>(testMesh);
     dragonActor.registerPipeline(mainPipeline);
     actors.push_back(new Actor(dragonActor));
 
-    // Define the main rendering pass
     Pass mainPass;
     mainPass.name = "MainForwardPass";
     mainPass.pipeline = mainPipeline;
-    mainPass.useDepth = true; // Required by the executor logic to set up depth attachment
-
-    mainPass.execute = [&vb, &meshletBuffer, &meshletVertexBuffer, &meshletTriangleBuffer, &texture](VkCommandBuffer cmd, const Pass& pass, PassContext& ctx) {
-        Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
-        pipeline->bind(cmd);
-        
-        VkDescriptorSet globalSet = ctx.pipelineManager.getGlobalDescriptorSet();
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &globalSet, 0, nullptr);
-        
-        auto view = ctx.scene.getRegistry().view<Mesh*>();
-        for (auto entity : view)
+    mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, texture](
+        VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {
-            Actor actor(entity, &ctx.scene);
-            Mesh* mesh = actor.getComponent<Mesh*>();
-            uint32_t meshletCount = (uint32_t)mesh->m_meshlets.size();
+            auto view = ctx.scene.getRegistry().view<Mesh*>();
+            for (auto entity : view)
+            {
+                Actor actor(entity, &ctx.scene);
+                Mesh* mesh = actor.getComponent<Mesh*>();
+                uint32_t meshletCount = (uint32_t)mesh->m_meshlets.size();
 
-            Buffer* vertexBuffer = ctx.resourceManager.getBuffer(vb);
-            Buffer* cameraBuffer = ctx.resourceManager.getBuffer(ctx.CameraBuffer); 
-            Buffer* meshlets = ctx.resourceManager.getBuffer(meshletBuffer);
-            Buffer* meshletVertices = ctx.resourceManager.getBuffer(meshletVertexBuffer);
-            Buffer* meshletTriangles = ctx.resourceManager.getBuffer(meshletTriangleBuffer);
-            Texture* mainTexture = ctx.resourceManager.getTexture(texture);
+                Buffer* vertexBuffer = ctx.resourceManager.getBuffer(vb);
+                Buffer* cameraBuffer = ctx.resourceManager.getBuffer(ctx.CameraBuffer);
+                Buffer* meshlets = ctx.resourceManager.getBuffer(meshletBuffer);
+                Buffer* meshletVertices = ctx.resourceManager.getBuffer(meshletVertexBuffer);
+                Buffer* meshletTriangles = ctx.resourceManager.getBuffer(meshletTriangleBuffer);
+                Texture* mainTexture = ctx.resourceManager.getTexture(texture);
 
-            DefaultPipelineLayout push = {vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
-                                          meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
-                                          meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0, meshletCount};
+                DefaultPipelineLayout push = {
+                    vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
+                    meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
+                    meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0, meshletCount
+                };
 
-            vkCmdPushConstants(cmd, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0, sizeof(DefaultPipelineLayout), &push);
-            vkCmdDrawMeshTasksEXT(cmd, divideAndRoundUp(meshletCount, 32), 1, 1);
-        }
-    };
+                Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
+                vkCmdPushConstants(cmd, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,
+                                   sizeof(DefaultPipelineLayout), &push);
+                vkCmdDrawMeshTasksEXT(cmd, divideAndRoundUp(meshletCount, 32), 1, 1);
+            }
+        };
+
+    Pass editorPass;
+    editorPass.name = "EditorPass";
+    editorPass.execute = [&editorLayer = editorLayer, &swapchain = swapchain](
+        VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
+        {
+            editorLayer.render(cmd, swapchain.width, swapchain.height);
+        };
 
     double lastFrame = glfwGetTime();
     while (!glfwWindowShouldClose(window))
@@ -494,7 +515,7 @@ void EngineInstance::MainLoop()
         glfwPollEvents();
 
         editorLayer.beginFrame();
-        
+
         ImGui::Begin("Engine Stats");
         ImGui::Text("Delta Time: %.3f ms (%.1f FPS)", deltaTime * 1000.0f, 1.0f / deltaTime);
         ImGui::End();
@@ -502,6 +523,7 @@ void EngineInstance::MainLoop()
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
             glfwSetWindowShouldClose(window, true);
+            break;
         }
 
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
@@ -539,7 +561,6 @@ void EngineInstance::MainLoop()
             camera.setPerspective(70.f, (float)Width / (float)Height);
         }
 
-        // Update camera data on GPU
         camera.update();
         GpuCameraData camData;
         camData.view = camera.getViewMatrix();
@@ -548,26 +569,27 @@ void EngineInstance::MainLoop()
         Buffer* cameraBufferRef = resourceManager.getBuffer(camera_buffer);
         cameraBufferRef->copyDataToBuffer(&camData, sizeof(GpuCameraData));
 
-        if (timelineValue >= MAX_FRAMES_IN_FLIGHT)
+        uint32_t frameIndex = timelineValue % MAX_FRAMES_IN_FLIGHT;
+        uint64_t waitValue = timelineValue >= MAX_FRAMES_IN_FLIGHT ? timelineValue - MAX_FRAMES_IN_FLIGHT + 1 : 0;
+
+        if (waitValue > 0)
         {
             VkSemaphoreWaitInfo waitInfo{VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
             waitInfo.semaphoreCount = 1;
             waitInfo.pSemaphores = &timelineSemaphore;
-            uint64_t waitValue = timelineValue - (MAX_FRAMES_IN_FLIGHT - 1);
             waitInfo.pValues = &waitValue;
             vkWaitSemaphores(Device, &waitInfo, ~0ull);
         }
 
-        uint32_t frameIndex = timelineValue % MAX_FRAMES_IN_FLIGHT;
         VkSemaphore acquireSemaphore = acquireSemaphores[frameIndex];
         VkSemaphore submitSemaphore = submitSemaphores[frameIndex];
         VkCommandPool currentCommandPool = commandPools[frameIndex];
         VkCommandBuffer currentCommandBuffer = commandBuffers[frameIndex];
 
-        // 
         uint32_t ImageIndex;
-        VkResult acquireResult = vkAcquireNextImageKHR(Device, swapchain.swapchain, ~0ull, acquireSemaphore, VK_NULL_HANDLE, &ImageIndex);
-        
+        VkResult acquireResult = vkAcquireNextImageKHR(Device, swapchain.swapchain, ~0ull, acquireSemaphore,
+                                                       VK_NULL_HANDLE, &ImageIndex);
+
         vkResetCommandPool(Device, currentCommandPool, 0);
 
         VkCommandBufferBeginInfo BeginInfo = {
@@ -581,44 +603,37 @@ void EngineInstance::MainLoop()
         VkImageMemoryBarrier barriers[] = {
             ImageBarrier(colorTexture->m_image, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
-            ImageBarrier(depthTexture->m_image, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+            ImageBarrier(depthTexture->m_image, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                         VK_IMAGE_LAYOUT_UNDEFINED,
                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
         };
         vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                              VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                              0, 0, nullptr, 0, nullptr, 2, barriers);
 
-        VkRenderingAttachmentInfo colorAttachment = {
-            VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, colorTexture->m_view,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_RESOLVE_MODE_NONE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE
-        };
-        colorAttachment.clearValue.color = {0.1f, 0.01f, 0.01f, 1.0f};
-
-        VkRenderingAttachmentInfo depthAttachment = {
-            VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, depthTexture->m_view,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_RESOLVE_MODE_NONE, VK_NULL_HANDLE,
-            VK_IMAGE_LAYOUT_UNDEFINED, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE
-        };
-        depthAttachment.clearValue.depthStencil = {1.0f, 0};
-
-        VkRenderingInfo renderingInfo = {
-            VK_STRUCTURE_TYPE_RENDERING_INFO, nullptr, 0, {{0, 0}, {swapchain.width, swapchain.height}}, 1, 0, 1,
-            &colorAttachment, &depthAttachment, nullptr
-        };
-        vkCmdBeginRendering(currentCommandBuffer, &renderingInfo);
-
         VkViewport viewport = {0, (float)swapchain.height, (float)swapchain.width, -(float)swapchain.height, 0, 1};
         vkCmdSetViewport(currentCommandBuffer, 0, 1, &viewport);
         VkRect2D scissor = {{0, 0}, {swapchain.width, swapchain.height}};
         vkCmdSetScissor(currentCommandBuffer, 0, 1, &scissor);
 
-        PassContext ctx = { camera_buffer, resourceManager, pipeline_manager, scene };
-        mainPass.execute(currentCommandBuffer, mainPass, ctx);
+        RenderBatch frameBatch;
+        frameBatch.name = "MainFrameBatch";
+        frameBatch.colorAttachments = {
+            {
+                ColorTextureHandle, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
+                {{0.1f, 0.01f, 0.01f, 1.0f}}
+            }
+        };
+        frameBatch.depthAttachment = {
+            DepthTextureHandle, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, {1.0f, 0}
+        };
+        frameBatch.useDepth = true;
+        frameBatch.passes.push_back(mainPass);
+        frameBatch.passes.push_back(editorPass);
 
-        editorLayer.render(currentCommandBuffer, swapchain.width, swapchain.height);
-        
-        vkCmdEndRendering(currentCommandBuffer);
+        BufferHandle camBuffer = camera_buffer;
+        PassContext ctx = {camBuffer, resourceManager, pipeline_manager, scene};
+        PassExecutor::execute(currentCommandBuffer, frameBatch, ctx);
 
         VkImageCopy copyRegion{};
         copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
@@ -627,18 +642,28 @@ void EngineInstance::MainLoop()
         copyRegion.dstOffset = {0, 0, 0};
         copyRegion.extent = {swapchain.width, swapchain.height, 1};
 
-        VkImageMemoryBarrier srcBarrier = ImageBarrier(colorTexture->m_image, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        VkImageMemoryBarrier dstBarrier = ImageBarrier(swapchain.images[ImageIndex], 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VkImageMemoryBarrier srcBarrier = ImageBarrier(colorTexture->m_image, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                                                       VK_ACCESS_TRANSFER_READ_BIT,
+                                                       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        VkImageMemoryBarrier dstBarrier = ImageBarrier(swapchain.images[ImageIndex], 0, VK_ACCESS_TRANSFER_WRITE_BIT,
+                                                       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &srcBarrier);
-        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &dstBarrier);
+        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &srcBarrier);
+        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                             0, nullptr, 0, nullptr, 1, &dstBarrier);
 
-        vkCmdCopyImage(currentCommandBuffer, colorTexture->m_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchain.images[ImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+        vkCmdCopyImage(currentCommandBuffer, colorTexture->m_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       swapchain.images[ImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-        VkImageMemoryBarrier presentBarrier = ImageBarrier(swapchain.images[ImageIndex], VK_ACCESS_TRANSFER_WRITE_BIT, 0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        
-        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &presentBarrier);
-        
+        VkImageMemoryBarrier presentBarrier = ImageBarrier(swapchain.images[ImageIndex], VK_ACCESS_TRANSFER_WRITE_BIT,
+                                                           0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+        vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &presentBarrier);
+
         vkEndCommandBuffer(currentCommandBuffer);
 
         timelineValue++;
@@ -654,7 +679,7 @@ void EngineInstance::MainLoop()
         signalSemaphores[0].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
         signalSemaphores[0].semaphore = submitSemaphore;
         signalSemaphores[0].stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-        
+
         signalSemaphores[1].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
         signalSemaphores[1].semaphore = timelineSemaphore;
         signalSemaphores[1].value = timelineValue;
@@ -669,7 +694,7 @@ void EngineInstance::MainLoop()
         submitInfo.pSignalSemaphoreInfos = signalSemaphores;
 
         vkQueueSubmit2(gpuContext.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        
+
         VkPresentInfoKHR presentInfo = {
             VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, nullptr, 1, &submitSemaphore, 1, &swapchain.swapchain, &ImageIndex
         };
@@ -677,7 +702,8 @@ void EngineInstance::MainLoop()
     }
 
 
-    if (Device != VK_NULL_HANDLE) {
+    if (Device != VK_NULL_HANDLE)
+    {
         vkDeviceWaitIdle(Device);
     }
 

@@ -35,16 +35,12 @@ namespace ToyEngine
         PipelineManager& pipelineManager;
         Scene& scene;
     };
-    
+
     struct Pass
     {
         std::string name;
         PassType type = EPassType_OpaquePass;
         PipelineHandle pipeline;
-
-        std::vector<PassAttachment> colorAttachments;
-        PassAttachment depthAttachment;
-        bool useDepth = false;
 
         std::vector<TextureHandle> inputTextures;
         std::vector<BufferHandle> inputBuffers;
@@ -52,4 +48,13 @@ namespace ToyEngine
         std::function<void(VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)> execute;
     };
 
+    struct RenderBatch
+    {
+        std::string name;
+        std::vector<PassAttachment> colorAttachments;
+        PassAttachment depthAttachment;
+        bool useDepth = false;
+
+        std::vector<Pass> passes;
+    };
 }
