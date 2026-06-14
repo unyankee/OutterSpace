@@ -30,12 +30,12 @@ namespace ToyEngine
 
     struct PassContext
     {
+        BufferHandle& CameraBuffer;
         ResourceManager& resourceManager;
         PipelineManager& pipelineManager;
         Scene& scene;
     };
     
-    // The idea is to be a container of the data required for this pass
     struct Pass
     {
         std::string name;
@@ -47,8 +47,8 @@ namespace ToyEngine
         bool useDepth = false;
 
         std::vector<TextureHandle> inputTextures;
+        std::vector<BufferHandle> inputBuffers;
 
-        // The logic: what this pass actually does
         std::function<void(VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)> execute;
     };
 

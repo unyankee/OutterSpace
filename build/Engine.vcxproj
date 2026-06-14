@@ -134,6 +134,7 @@
     <ClInclude Include="..\Engine\src\GpuResources.h" />
     <ClInclude Include="..\Engine\src\Mesh.h" />
     <ClInclude Include="..\Engine\src\Pass.h" />
+    <ClInclude Include="..\Engine\src\PassExecutor.h" />
     <ClInclude Include="..\Engine\src\Pipeline.h" />
     <ClInclude Include="..\Engine\src\PipelineManager.h" />
     <ClInclude Include="..\Engine\src\ResourceManager.h" />
@@ -154,6 +155,8 @@
     <ClCompile Include="..\Engine\src\Mesh.cpp">
     </ClCompile>
     <ClCompile Include="..\Engine\src\Pass.cpp">
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\PassExecutor.cpp">
     </ClCompile>
     <ClCompile Include="..\Engine\src\Pipeline.cpp">
     </ClCompile>

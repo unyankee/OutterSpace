@@ -24,6 +24,7 @@
 #include "src/Actor.h"
 #include "src/Scene.h"
 #include "src/Pass.h"
+#include "src/PassExecutor.h"
 #include "src/EditorLayer.h"
 #include <imgui.h>
 
@@ -66,7 +67,7 @@ public:
     uint32_t swapchainImagesCount = 0;
 
     Swapchain swapchain;
-    RenderTargetHandle DepthTexture;
+    RenderTargetHandle DepthTextureHandle;
 
     VkPhysicalDeviceMemoryProperties PhysicalMemoryProperties;
     VkDebugReportCallbackEXT DebugCallback;
@@ -297,11 +298,11 @@ void EngineInstance::GetSwapchainFormat()
 
 void EngineInstance::CreateDepthTexture()
 {
-    if (DepthTexture.isValid())
+    if (DepthTextureHandle.isValid())
     {
-        resourceManager.destroyRenderTarget(DepthTexture);
+        resourceManager.destroyRenderTarget(DepthTextureHandle);
     }
-    DepthTexture = resourceManager.createRenderTarget(swapchain.width, swapchain.height, VK_FORMAT_D32_SFLOAT,
+    DepthTextureHandle = resourceManager.createRenderTarget(swapchain.width, swapchain.height, VK_FORMAT_D32_SFLOAT,
                         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
@@ -445,18 +446,15 @@ void EngineInstance::MainLoop()
     Pass mainPass;
     mainPass.name = "MainForwardPass";
     mainPass.pipeline = mainPipeline;
-    mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, texture, this](VkCommandBuffer cmd, const Pass& pass, PassContext& ctx) {
+    mainPass.useDepth = true; // Required by the executor logic to set up depth attachment
+
+    mainPass.execute = [&vb, &meshletBuffer, &meshletVertexBuffer, &meshletTriangleBuffer, &texture](VkCommandBuffer cmd, const Pass& pass, PassContext& ctx) {
         Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
-        if (!pipeline)
-        {
-            return;  
-        } 
-
         pipeline->bind(cmd);
-        VkDescriptorSet set = ctx.pipelineManager.getGlobalDescriptorSet();
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &set, 0, nullptr);
-
-        // right now, single pass that iterates over all actors, gets their meshes and renders them 1 by 1
+        
+        VkDescriptorSet globalSet = ctx.pipelineManager.getGlobalDescriptorSet();
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &globalSet, 0, nullptr);
+        
         auto view = ctx.scene.getRegistry().view<Mesh*>();
         for (auto entity : view)
         {
@@ -465,7 +463,7 @@ void EngineInstance::MainLoop()
             uint32_t meshletCount = (uint32_t)mesh->m_meshlets.size();
 
             Buffer* vertexBuffer = ctx.resourceManager.getBuffer(vb);
-            Buffer* cameraBuffer = ctx.resourceManager.getBuffer(camera_buffer);
+            Buffer* cameraBuffer = ctx.resourceManager.getBuffer(ctx.CameraBuffer); 
             Buffer* meshlets = ctx.resourceManager.getBuffer(meshletBuffer);
             Buffer* meshletVertices = ctx.resourceManager.getBuffer(meshletVertexBuffer);
             Buffer* meshletTriangles = ctx.resourceManager.getBuffer(meshletTriangleBuffer);
@@ -559,6 +557,7 @@ void EngineInstance::MainLoop()
         VkCommandPool currentCommandPool = commandPools[frameIndex];
         VkCommandBuffer currentCommandBuffer = commandBuffers[frameIndex];
 
+        // 
         uint32_t ImageIndex;
         VkResult acquireResult = vkAcquireNextImageKHR(Device, swapchain.swapchain, ~0ull, acquireSemaphore, VK_NULL_HANDLE, &ImageIndex);
         
@@ -569,7 +568,7 @@ void EngineInstance::MainLoop()
         };
         vkBeginCommandBuffer(currentCommandBuffer, &BeginInfo);
 
-        RenderTarget* depthTexture = resourceManager.getRenderTarget(DepthTexture);
+        RenderTarget* depthTexture = resourceManager.getRenderTarget(DepthTextureHandle);
         VkImageMemoryBarrier barriers[] = {
             ImageBarrier(swapchain.images[ImageIndex], 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
@@ -580,12 +579,15 @@ void EngineInstance::MainLoop()
                              VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                              0, 0, nullptr, 0, nullptr, 2, barriers);
 
+        
+        // Define render pass attachments
         VkRenderingAttachmentInfo colorAttachment = {
             VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, swapchain.imageviews[ImageIndex],
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_RESOLVE_MODE_NONE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED,
             VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE
         };
         colorAttachment.clearValue.color = {0.1f, 0.01f, 0.01f, 1.0f};
+
         VkRenderingAttachmentInfo depthAttachment = {
             VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, nullptr, depthTexture->m_view,
             VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_RESOLVE_MODE_NONE, VK_NULL_HANDLE,
@@ -604,11 +606,11 @@ void EngineInstance::MainLoop()
         VkRect2D scissor = {{0, 0}, {swapchain.width, swapchain.height}};
         vkCmdSetScissor(currentCommandBuffer, 0, 1, &scissor);
 
-        // Execute the main pass
-        PassContext ctx = { resourceManager, pipeline_manager, scene };
+        PassContext ctx = { camera_buffer, resourceManager, pipeline_manager, scene };
         mainPass.execute(currentCommandBuffer, mainPass, ctx);
-        
+
         editorLayer.render(currentCommandBuffer, swapchain.width, swapchain.height);
+        
         vkCmdEndRendering(currentCommandBuffer);
 
         VkImageMemoryBarrier presentBarrier = ImageBarrier(swapchain.images[ImageIndex],
@@ -618,6 +620,7 @@ void EngineInstance::MainLoop()
         
         vkCmdPipelineBarrier(currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                              VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &presentBarrier);
+        
         vkEndCommandBuffer(currentCommandBuffer);
 
         timelineValue++;
