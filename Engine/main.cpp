@@ -427,18 +427,7 @@ void EngineInstance::MainLoop()
     VkShaderModule MeshMesh = Pipeline::loadShader(Device, "Shaders/mesh.mesh.spv");
     VkShaderModule MeshFs = Pipeline::loadShader(Device, "Shaders/mesh.frag.spv");
 
-    PipelineConfig config{};
-    config.m_taskShader = MeshTask;
-    config.m_meshShader = MeshMesh;
-    config.m_fragmentShader = MeshFs;
-    config.m_colorFormat = surfaceFormat.format;
-    config.m_useMeshShaders = true;
-
-    PipelineHandle mainPipeline = resourceManager.createPipeline(
-        config, pipeline_manager.getGlobalDescriptorSetLayout());
-
-    pipelines.push_back(mainPipeline);
-
+    
     Mesh* testMesh = new Mesh();
     testMesh->loadFromObj("assets/models/sponza.obj");
 
@@ -468,12 +457,19 @@ void EngineInstance::MainLoop()
 
     Actor dragonActor = scene.createActor();
     dragonActor.addComponent<Mesh*>(testMesh);
-    dragonActor.registerPipeline(mainPipeline);
     actors.push_back(new Actor(dragonActor));
 
+    // Main pass config
+    PipelineConfig config{};
+    config.m_taskShader = MeshTask;
+    config.m_meshShader = MeshMesh;
+    config.m_fragmentShader = MeshFs;
+    config.m_colorFormat = surfaceFormat.format;
+    config.m_useMeshShaders = true;
+    
     Pass mainPass;
     mainPass.name = "MainForwardPass";
-    mainPass.pipeline = mainPipeline;
+    mainPass.pipeline = resourceManager.createPipeline(config, pipeline_manager.getGlobalDescriptorSetLayout());;
     mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, texture](
         VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {

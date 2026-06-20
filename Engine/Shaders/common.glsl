@@ -22,6 +22,8 @@ struct CameraData
     float padding;
 };
 
+// I think might moved this one out of common?
+// might be somethig added at the top of the shaders that needs it?
 layout(push_constant) uniform Constants 
 {
     uint64_t vertexBufferAddress; 

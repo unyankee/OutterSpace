@@ -25,9 +25,6 @@ namespace ToyEngine
         {
         }
 
-        void registerPipeline(PipelineHandle handle);
-        bool hasPipeline(PipelineHandle handle) const;
-
         entt::registry& getRegistry();
         const entt::registry& getRegistry() const;
 

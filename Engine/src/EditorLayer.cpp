@@ -30,7 +30,7 @@ namespace ToyEngine
         createPipeline(ctx, colorFormat);
         createFontAtlas(ctx);
 
-        m_vertexBuffer = m_resourceManager->createBuffer(1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        m_vertexBuffer = m_resourceManager->createBuffer(1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         m_indexBuffer = m_resourceManager->createBuffer(1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     }
 
@@ -59,7 +59,7 @@ namespace ToyEngine
         if (vertexBuffer->m_size < vertexSize)
         {
             m_resourceManager->destroyBuffer(m_vertexBuffer);
-            m_vertexBuffer = m_resourceManager->createBuffer((uint32_t)vertexSize * 2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            m_vertexBuffer = m_resourceManager->createBuffer((uint32_t)vertexSize * 2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
             vertexBuffer = m_resourceManager->getBuffer(m_vertexBuffer);
         }
 
@@ -92,22 +92,17 @@ namespace ToyEngine
             VkViewport viewport = {0, 0, (float)width, (float)height, 0, 1};
             vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-            struct PushConstants
-            {
-                float scale[2];
-                float translate[2];
-            } pc;
-
+            EditorPipelineLayout pc;
             pc.scale[0] = 2.0f / drawData->DisplaySize.x;
             pc.scale[1] = 2.0f / drawData->DisplaySize.y;
             pc.translate[0] = -1.0f - drawData->DisplayPos.x * pc.scale[0];
             pc.translate[1] = -1.0f - drawData->DisplayPos.y * pc.scale[1];
-
+            pc.VertexDataPtr = vertexBuffer->m_gpuAddress;
             vkCmdPushConstants(cmd, pipeline->getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
         }
 
         VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer->m_buffer, &offset);
+        //vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer->m_buffer, &offset);
         vkCmdBindIndexBuffer(cmd, indexBuffer->m_buffer, 0, sizeof(ImDrawIdx) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
         int vtxOffset = 0;
@@ -134,7 +129,7 @@ namespace ToyEngine
                     scissor.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
 
                     vkCmdSetScissor(cmd, 0, 1, &scissor);
-
+                    
                     vkCmdDrawIndexed(cmd, pcmd->ElemCount, 1, pcmd->IdxOffset + idxOffset, pcmd->VtxOffset + vtxOffset, 0);
                 }
             }

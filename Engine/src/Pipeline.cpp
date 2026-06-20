@@ -71,36 +71,6 @@ namespace ToyEngine
 
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
-        VkVertexInputBindingDescription bindingDesc = {};
-        bindingDesc.binding = 0;
-        bindingDesc.stride = 20; // ImDrawVert: pos(8) + uv(8) + col(4)
-        bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        VkVertexInputAttributeDescription attrDesc[3] = {};
-
-        attrDesc[0].location = 0;
-        attrDesc[0].binding = 0;
-        attrDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
-        attrDesc[0].offset = 0;
-
-        attrDesc[1].location = 1;
-        attrDesc[1].binding = 0;
-        attrDesc[1].format = VK_FORMAT_R32G32_SFLOAT;
-        attrDesc[1].offset = 8;
-
-        attrDesc[2].location = 2;
-        attrDesc[2].binding = 0;
-        attrDesc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
-        attrDesc[2].offset = 16;
-
-        if (m_config.m_blending)
-        {
-            vertexInputInfo.vertexBindingDescriptionCount = 1;
-            vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
-            vertexInputInfo.vertexAttributeDescriptionCount = 3;
-            vertexInputInfo.pVertexAttributeDescriptions = attrDesc;
-        }
-
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{
             VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO
         };

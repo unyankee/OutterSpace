@@ -20,25 +20,6 @@ namespace ToyEngine
     }
 
     // Actor implementation
-    void Actor::registerPipeline(PipelineHandle handle)
-    {
-        auto& pipelines = m_scene->getRegistry().get<std::vector<PipelineHandle>>(m_entity);
-        pipelines.push_back(handle);
-    }
-
-    bool Actor::hasPipeline(PipelineHandle handle) const
-    {
-        const auto& pipelines = m_scene->getRegistry().get<std::vector<PipelineHandle>>(m_entity);
-        for (auto& h : pipelines)
-        {
-            if (h.index == handle.index && h.generation == handle.generation)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     entt::registry& Actor::getRegistry()
     {
         return m_scene->getRegistry();

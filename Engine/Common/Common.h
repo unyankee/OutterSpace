@@ -40,3 +40,10 @@ struct DefaultPipelineLayout
 	uint32_t samplerIndex;
 	uint32_t meshletCount;
 };
+
+struct EditorPipelineLayout
+{
+	float scale[2];
+	float translate[2];
+	VkDeviceAddress VertexDataPtr;
+};
