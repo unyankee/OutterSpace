@@ -10,10 +10,6 @@
 #include <GLFW/glfw3native.h>
 
 #include <extern/stb/stb_image.h>
-
-#include <extern/meshoptimizer/extern/fast_obj.h>
-
-#include "meshoptimizer.h"
 #include "Common/Common.h"
 #include "src/PipelineManager.h"
 #include "src/Camera.h"
@@ -29,8 +25,8 @@
 #include <imgui.h>
 
 
-const uint32_t StartupWidthResolution = 1920;
-const uint32_t StartupHeightResolution = 1080;
+constexpr uint32_t StartupWidthResolution = 1920;
+constexpr uint32_t StartupHeightResolution = 1080;
 
 using namespace ToyEngine;
 
@@ -101,6 +97,14 @@ public:
     static VkImageMemoryBarrier ImageBarrier(VkImage Image, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
                                              VkImageLayout oldLayout, VkImageLayout newLayout);
 };
+
+void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    if (ImGui::GetIO().WantCaptureMouse)
+        return;
+    EngineInstance* instance = (EngineInstance*)glfwGetWindowUserPointer(window);
+    instance->camera.processMouseScroll((float)yoffset);
+}
 
 VkBool32 DebugReporterVulkan(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object,
                              size_t location,
@@ -181,6 +185,8 @@ void EngineInstance::InitInstance()
     vkEnumeratePhysicalDevices(Instance, &DeviceCount, PhysicalDevices.data());
 
     window = glfwCreateWindow(StartupWidthResolution, StartupHeightResolution, "ToyEngine", 0, 0);
+    glfwSetWindowUserPointer(window, this);
+    glfwSetScrollCallback(window, ScrollCallback);
 
     SelectPhysicalDevice();
     getGraphicsQueueFamily();
@@ -500,6 +506,8 @@ void EngineInstance::MainLoop()
 
     Pass editorPass;
     editorPass.name = "EditorPass";
+    editorPass.pipeline = editorLayer.GetPipeline();
+    editorPass.descriptorSets = editorLayer.GetDescriptorSets();
     editorPass.execute = [&editorLayer = editorLayer, &swapchain = swapchain](
         VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {
@@ -526,12 +534,19 @@ void EngineInstance::MainLoop()
             break;
         }
 
+        static bool bWasMousePressed = true;
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
         {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
             static double lastX = xpos, lastY = ypos;
+            if (bWasMousePressed)
+            {
+                lastX = xpos;
+                lastY = ypos;
+                bWasMousePressed = false;
+            }
             camera.processMouseMovement((float)(xpos - lastX), (float)(lastY - ypos));
             lastX = xpos;
             lastY = ypos;
@@ -551,6 +566,7 @@ void EngineInstance::MainLoop()
         else
         {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            bWasMousePressed = true;
         }
 
         int Width, Height;

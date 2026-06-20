@@ -13,13 +13,6 @@ namespace ToyEngine
     class PipelineManager;
     class Scene;
 
-    enum PassType
-    {
-        EPassType_OpaquePass = 0,
-        EPassType_ComputePass,
-        EPassType_UIPass
-    };
-
     struct PassAttachment
     {
         RenderTargetHandle handle;
@@ -39,11 +32,11 @@ namespace ToyEngine
     struct Pass
     {
         std::string name;
-        PassType type = EPassType_OpaquePass;
         PipelineHandle pipeline;
 
         std::vector<TextureHandle> inputTextures;
         std::vector<BufferHandle> inputBuffers;
+        std::vector<VkDescriptorSet> descriptorSets;
 
         std::function<void(VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)> execute;
     };

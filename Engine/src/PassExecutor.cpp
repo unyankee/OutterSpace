@@ -59,9 +59,18 @@ namespace ToyEngine
                 Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
                 pipeline->bind(cmd);
 
-                VkDescriptorSet globalSet = ctx.pipelineManager.getGlobalDescriptorSet();
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &globalSet,
-                                        0, nullptr);
+                if (!pass.descriptorSets.empty())
+                {
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0,
+                                            (uint32_t)pass.descriptorSets.size(), pass.descriptorSets.data(),
+                                            0, nullptr);
+                }
+                else
+                {
+                    VkDescriptorSet globalSet = ctx.pipelineManager.getGlobalDescriptorSet();
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &globalSet,
+                                            0, nullptr);
+                }
             }
 
             if (pass.execute)

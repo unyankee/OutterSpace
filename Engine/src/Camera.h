@@ -60,6 +60,8 @@ namespace ToyEngine
 
         void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
 
+        void processMouseScroll(float yoffset);
+
     private:
         Vec3 m_position;
         Vec3 m_front;

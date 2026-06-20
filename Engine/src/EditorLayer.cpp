@@ -89,11 +89,6 @@ namespace ToyEngine
         Pipeline* pipeline = m_resourceManager->getPipeline(m_pipeline);
         if (pipeline)
         {
-            pipeline->bind(cmd);
-
-            VkDescriptorSet sets[] = {m_fontDescriptorSet, m_samplerDescriptorSet};
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 2, sets, 0, nullptr);
-
             VkViewport viewport = {0, 0, (float)width, (float)height, 0, 1};
             vkCmdSetViewport(cmd, 0, 1, &viewport);
 

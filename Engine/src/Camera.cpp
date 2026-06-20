@@ -141,6 +141,13 @@ namespace ToyEngine
         updateCameraVectors();
     }
 
+    void Camera::processMouseScroll(float yoffset)
+    {
+        m_movementSpeed += yoffset * 2.0f;
+        if (m_movementSpeed < 1.0f)
+            m_movementSpeed = 1.0f;
+    }
+
     void Camera::updateCameraVectors()
     {
         Vec3 front;

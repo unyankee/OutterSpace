@@ -24,6 +24,9 @@ namespace ToyEngine
 
         void destroy();
 
+        const PipelineHandle& GetPipeline() const {return m_pipeline;};
+
+        std::vector<VkDescriptorSet> GetDescriptorSets() const { return { m_fontDescriptorSet, m_samplerDescriptorSet }; }
     private:
         void createPipeline(const GpuContext& ctx, VkFormat colorFormat);
 
