@@ -25,6 +25,7 @@
 #include <imgui.h>
 
 
+constexpr uint32_t MaxTransformsPerScene = 1 << 18;
 constexpr uint32_t StartupWidthResolution = 1920;
 constexpr uint32_t StartupHeightResolution = 1080;
 
@@ -32,9 +33,9 @@ using namespace ToyEngine;
 
 struct GpuCameraData
 {
-    Mat4 view;
-    Mat4 proj;
-    Vec3 eyePos;
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::vec3 eyePos;
     float padding;
 };
 
@@ -74,10 +75,10 @@ public:
     ResourceManager resourceManager;
     Camera camera;
 
-    BufferHandle camera_buffer;
+    BufferHandle cameraBufferHandle;
+    BufferHandle TransformBufferHandle;
 
     Scene scene;
-    std::vector<PipelineHandle> pipelines;
     std::vector<Actor*> actors;
     EditorLayer editorLayer;
 
@@ -206,7 +207,15 @@ void EngineInstance::InitInstance()
     camera.setPerspective(70.f, (float)StartupWidthResolution / (float)StartupHeightResolution);
     camera.update();
 
-    camera_buffer = resourceManager.createBuffer(sizeof(GpuCameraData),
+    cameraBufferHandle = resourceManager.createBuffer(sizeof(GpuCameraData),
+                                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    // Not the best, since this one is mapped to cpu, so first will got it working,
+    // then will update with a gpu only buffer
+    TransformBufferHandle = resourceManager.createBuffer(sizeof(Transform) * MaxTransformsPerScene,
                                                  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -467,22 +476,27 @@ void EngineInstance::MainLoop()
     config.m_colorFormat = surfaceFormat.format;
     config.m_useMeshShaders = true;
     
+    VkPushConstantRange mainPushConstantRange{};
+    mainPushConstantRange.stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    mainPushConstantRange.offset = 0;
+    mainPushConstantRange.size = sizeof(DefaultPipelineLayout);
+
     Pass mainPass;
     mainPass.name = "MainForwardPass";
-    mainPass.pipeline = resourceManager.createPipeline(config, pipeline_manager.getGlobalDescriptorSetLayout());;
-    mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, texture](
+    mainPass.pipeline = resourceManager.createPipeline(config, pipeline_manager.getGlobalDescriptorSetLayout(), { mainPushConstantRange });
+    mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, TransformBufferHandle = TransformBufferHandle, texture](
         VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {
-            auto view = ctx.scene.getRegistry().view<Mesh*>();
-            for (auto entity : view)
+            auto view = ctx.scene.getRegistry().view<Mesh*, TransformIndex>();            
+            for (const auto& [entity, mesh, transformIndex]  : view.each())
             {
-                Actor actor(entity, &ctx.scene);
-                Mesh* mesh = actor.getComponent<Mesh*>();
+                //Actor actor(entity, &ctx.scene);
                 uint32_t meshletCount = (uint32_t)mesh->m_meshlets.size();
 
                 Buffer* vertexBuffer = ctx.resourceManager.getBuffer(vb);
                 Buffer* cameraBuffer = ctx.resourceManager.getBuffer(ctx.CameraBuffer);
                 Buffer* meshlets = ctx.resourceManager.getBuffer(meshletBuffer);
+                Buffer* Transform = ctx.resourceManager.getBuffer(TransformBufferHandle);
                 Buffer* meshletVertices = ctx.resourceManager.getBuffer(meshletVertexBuffer);
                 Buffer* meshletTriangles = ctx.resourceManager.getBuffer(meshletTriangleBuffer);
                 Texture* mainTexture = ctx.resourceManager.getTexture(texture);
@@ -490,12 +504,14 @@ void EngineInstance::MainLoop()
                 DefaultPipelineLayout push = {
                     vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
                     meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
-                    meshletTriangles->m_gpuAddress, mainTexture->m_bindlessIndex, 0, meshletCount
+                    meshletTriangles->m_gpuAddress, Transform->m_gpuAddress, mainTexture->m_bindlessIndex, 0,
+                    meshletCount, transformIndex.index
                 };
 
                 Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
                 vkCmdPushConstants(cmd, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,
                                    sizeof(DefaultPipelineLayout), &push);
+                
                 vkCmdDrawMeshTasksEXT(cmd, divideAndRoundUp(meshletCount, 32), 1, 1);
             }
         };
@@ -578,9 +594,17 @@ void EngineInstance::MainLoop()
         camData.view = camera.getViewMatrix();
         camData.proj = camera.getProjectionMatrix();
         camData.eyePos = camera.getPosition();
-        Buffer* cameraBufferRef = resourceManager.getBuffer(camera_buffer);
+        Buffer* cameraBufferRef = resourceManager.getBuffer(cameraBufferHandle);
         cameraBufferRef->copyDataToBuffer(&camData, sizeof(GpuCameraData));
 
+
+        // Iterates and update all transform data
+        // non-optimal at all, no need to do every frame and a lot of reasons, but... shortcuts
+        scene.transformSystem.update();
+        Buffer* TranformBufferRef = resourceManager.getBuffer(TransformBufferHandle);
+        TranformBufferRef->copyDataToBuffer(scene.transformSystem.TransformsData.data(), sizeof(Transform) * scene.transformSystem.TransformsData.size());
+
+        
         uint32_t frameIndex = timelineValue % MAX_FRAMES_IN_FLIGHT;
         uint64_t waitValue = timelineValue >= MAX_FRAMES_IN_FLIGHT ? timelineValue - MAX_FRAMES_IN_FLIGHT + 1 : 0;
 
@@ -643,10 +667,13 @@ void EngineInstance::MainLoop()
         frameBatch.passes.push_back(mainPass);
         frameBatch.passes.push_back(editorPass);
 
-        BufferHandle camBuffer = camera_buffer;
+        BufferHandle camBuffer = cameraBufferHandle;
         PassContext ctx = {camBuffer, resourceManager, pipeline_manager, scene};
         PassExecutor::execute(currentCommandBuffer, frameBatch, ctx);
 
+
+
+        
         VkImageCopy copyRegion{};
         copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         copyRegion.srcOffset = {0, 0, 0};

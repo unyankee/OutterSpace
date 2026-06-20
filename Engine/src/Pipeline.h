@@ -33,8 +33,8 @@ namespace ToyEngine
         explicit Pipeline(const PipelineConfig& config) : m_config(config) {}
         ~Pipeline() = default;
 
-        void create(const GpuContext& ctx, VkDescriptorSetLayout descriptorLayout);
-        void create(const GpuContext& ctx, std::vector<VkDescriptorSetLayout> descriptorLayouts);
+        void create(const GpuContext& ctx, VkDescriptorSetLayout descriptorLayout, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
+        void create(const GpuContext& ctx, std::vector<VkDescriptorSetLayout> descriptorLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
         void destroy(const GpuContext& ctx);
 
         void bind(VkCommandBuffer cmd) const;

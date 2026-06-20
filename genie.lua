@@ -27,6 +27,7 @@ project "Engine"
         "extern/glfw/glfw-3.4/include",
         "extern/imgui",
         "extern/entt/src",
+        "extern/glm",
         "$(VULKAN_SDK)/include"
     }
 
@@ -75,7 +76,11 @@ project "Engine"
         "extern/glfw/glfw-3.4/src/win32_thread.c",
         "extern/glfw/glfw-3.4/src/win32_time.c",
         "extern/glfw/glfw-3.4/src/win32_window.c",
-        "extern/glfw/glfw-3.4/src/window.c"
+        "extern/glfw/glfw-3.4/src/window.c",
+        --- GLM
+        "extern/glm/glm/**.hpp",
+        "extern/glm/glm/**.h",
+        "extern/glm/glm/**.inl",
     }
 
     vpaths {
@@ -84,6 +89,7 @@ project "Engine"
         ["Extern/meshoptimizer"] = { "extern/meshoptimizer/**" },
         ["Extern/glfw"] = { "extern/glfw/**" },
         ["Extern/imgui"] = { "extern/imgui/**" },
+        ["Extern/glm"] = { "extern/glm/**" },
     }
 
     links {

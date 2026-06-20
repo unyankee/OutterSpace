@@ -57,6 +57,19 @@ if not exist "extern\entt" (
     echo [INFO] EnTT already exists in extern/entt
 )
 
+:: 1.6. Download GLM
+echo [1.6/5] Downloading GLM...
+if not exist "extern\glm" (
+    git clone --depth 1 https://github.com/g-truc/glm.git extern\glm
+    if %errorlevel% neq 0 (
+        echo [WARNING] Failed to clone glm. You might need to download it manually.
+    ) else (
+        echo [INFO] glm cloned successfully.
+    )
+) else (
+    echo [INFO] glm already exists in extern/glm
+)
+
 :: 2. Find/Verify Vulkan SDK
 echo [2/5] Verifying Vulkan SDK...
 if not defined VULKAN_SDK (

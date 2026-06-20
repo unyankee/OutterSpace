@@ -3,11 +3,16 @@
 
 namespace ToyEngine
 {
+    
     Actor Scene::createActor()
     {
         entt::entity entity = m_registry.create();
+        // Every Actor will be rendered, so we assign a transform to it
         m_registry.emplace<Transform>(entity);
-        m_registry.emplace<std::vector<PipelineHandle>>(entity);
+
+        const uint32_t transformIndex = transformSystem.alloc();
+        m_registry.emplace<TransformIndex>(entity, transformIndex);
+        
         return Actor(entity, this);
     }
 

@@ -8,32 +8,18 @@
 namespace ToyEngine
 {
 
-    void Pipeline::create(const GpuContext& ctx, VkDescriptorSetLayout descriptorLayout)
+    void Pipeline::create(const GpuContext& ctx, VkDescriptorSetLayout descriptorLayout, const std::vector<VkPushConstantRange>& pushConstantRanges)
     {
-        create(ctx, std::vector<VkDescriptorSetLayout>{descriptorLayout});
+        create(ctx, std::vector<VkDescriptorSetLayout>{descriptorLayout}, pushConstantRanges);
     }
 
-    void Pipeline::create(const GpuContext& ctx, std::vector<VkDescriptorSetLayout> descriptorLayouts)
+    void Pipeline::create(const GpuContext& ctx, std::vector<VkDescriptorSetLayout> descriptorLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges)
     {
-        VkPushConstantRange pushConstantRange{};
-        pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-        if (m_config.m_useMeshShaders)
-        {
-            pushConstantRange.stageFlags |= VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_TASK_BIT_EXT;
-        }
-        else
-        {
-            pushConstantRange.stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;            
-        }
-        
-        pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(DefaultPipelineLayout);
-
         VkPipelineLayoutCreateInfo layoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         layoutInfo.setLayoutCount = (uint32_t)descriptorLayouts.size();
         layoutInfo.pSetLayouts = descriptorLayouts.data();
-        layoutInfo.pushConstantRangeCount = 1;
-        layoutInfo.pPushConstantRanges = &pushConstantRange;
+        layoutInfo.pushConstantRangeCount = (uint32_t)pushConstantRanges.size();
+        layoutInfo.pPushConstantRanges = pushConstantRanges.empty() ? nullptr : pushConstantRanges.data();
 
         VK_CHECK(vkCreatePipelineLayout(ctx.m_device, &layoutInfo, nullptr, &m_layout));
 

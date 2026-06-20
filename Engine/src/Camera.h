@@ -1,4 +1,5 @@
 #pragma once
+#include "Common/Common.h"
 
 namespace ToyEngine
 {
@@ -6,17 +7,6 @@ namespace ToyEngine
     constexpr float DefaultFarplane = 3000.0f;
     constexpr float DefaultNearPlane = 0.1f;
     
-    struct Vec3
-    {
-        float m_x;
-        float m_y;
-        float m_z;
-    };
-
-    struct Mat4
-    {
-        float m_m[4][4];
-    };
 
     enum CameraMovement
     {
@@ -33,23 +23,23 @@ namespace ToyEngine
     public:
         Camera();
 
-        void setPosition(Vec3 position);
+        void setPosition(glm::vec3 position);
 
-        void setTarget(Vec3 target);
+        void setTarget(glm::vec3 target);
 
         void setPerspective(float fovDeg, float aspect, float nearZ = DefaultNearPlane, float farZ = DefaultFarplane);
 
-        const Vec3& getPosition() const
+        const glm::vec3& getPosition() const
         {
             return m_position;
         }
 
-        const Mat4& getViewMatrix() const
+        const glm::mat4& getViewMatrix() const
         {
             return m_viewMatrix;
         }
 
-        const Mat4& getProjectionMatrix() const
+        const glm::mat4& getProjectionMatrix() const
         {
             return m_projMatrix;
         }
@@ -63,11 +53,11 @@ namespace ToyEngine
         void processMouseScroll(float yoffset);
 
     private:
-        Vec3 m_position;
-        Vec3 m_front;
-        Vec3 m_up;
-        Vec3 m_right;
-        Vec3 m_worldUp;
+        glm::vec3 m_position;
+        glm::vec3 m_front;
+        glm::vec3 m_up;
+        glm::vec3 m_right;
+        glm::vec3 m_worldUp;
 
         // Euler Angles
         float m_yaw;
@@ -77,8 +67,8 @@ namespace ToyEngine
         float m_movementSpeed;
         float m_mouseSensitivity;
 
-        Mat4 m_viewMatrix;
-        Mat4 m_projMatrix;
+        glm::mat4 m_viewMatrix;
+        glm::mat4 m_projMatrix;
 
         void updateCameraVectors();
 

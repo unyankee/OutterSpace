@@ -10,20 +10,15 @@ namespace ToyEngine
 {
     class Scene;
 
-    struct Transform
-    {
-        Vec3 m_position = {0, 0, 0};
-        Vec3 m_rotation = {0, 0, 0};
-        Vec3 m_scale = {1, 1, 1};
-    };
-
     class Actor
     {
-    public:
+        friend class Scene;
+    protected:
         Actor(entt::entity entity, Scene* scene)
             : m_entity(entity), m_scene(scene)
         {
         }
+    public:
 
         entt::registry& getRegistry();
         const entt::registry& getRegistry() const;
@@ -60,7 +55,8 @@ namespace ToyEngine
 
         FORCEINLINE bool isValid() const { return m_entity != entt::null && m_scene != nullptr; }
         FORCEINLINE entt::entity getEntity() const { return m_entity; }
-
+        FORCEINLINE uint32_t getActorId() const { return getComponent<TransformIndex>().index; }
+        
     private:
         entt::entity m_entity = entt::null;
         Scene* m_scene = nullptr;

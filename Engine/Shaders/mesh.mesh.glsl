@@ -63,6 +63,9 @@ vec3 randomColor(uint seed)
 
 void main()
 {
+    const uint TransformIndex = push.TransformIndex;
+    TransformData transform = TransformDataPtr(push.TransformDataAddress).transforms[TransformIndex];
+    
     uint meshletIndex = payload.meshletIndices[gl_WorkGroupID.x];
     Meshlet meshlet = MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex];
     SetMeshOutputsEXT(meshlet.vertexCount, meshlet.triangleCount);
@@ -76,8 +79,8 @@ void main()
         Vertex vertex = VertexBufferPtr(push.vertexBufferAddress).vertices[vertexIndex];
 
         vec3 position = vec3(vertex.vx, vertex.vy, vertex.vz);
-        gl_MeshVerticesEXT[i].gl_Position = cam.proj * cam.view * vec4(position, 1.0);
-
+        gl_MeshVerticesEXT[i].gl_Position = cam.proj * cam.view* transform.modelMatrix * vec4(position, 1.0);
+        
         outUV[i] = vec2(vertex.tu, vertex.tv);
         outNormal[i] = vec3(vertex.nx, vertex.ny, vertex.nz);
 

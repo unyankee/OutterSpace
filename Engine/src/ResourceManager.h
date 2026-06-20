@@ -75,8 +75,8 @@ namespace ToyEngine
         const RenderTarget* getRenderTarget(RenderTargetHandle handle) const;
         void destroyRenderTarget(RenderTargetHandle handle);
 
-        PipelineHandle createPipeline(const PipelineConfig& config, VkDescriptorSetLayout descriptorLayout);
-        PipelineHandle createPipeline(const PipelineConfig& config, const std::vector<VkDescriptorSetLayout>& descriptorLayouts);
+        PipelineHandle createPipeline(const PipelineConfig& config, VkDescriptorSetLayout descriptorLayout, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
+        PipelineHandle createPipeline(const PipelineConfig& config, const std::vector<VkDescriptorSetLayout>& descriptorLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
         Pipeline* getPipeline(PipelineHandle handle);
         const Pipeline* getPipeline(PipelineHandle handle) const;
         void destroyPipeline(PipelineHandle handle);

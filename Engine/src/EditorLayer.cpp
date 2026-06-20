@@ -98,6 +98,7 @@ namespace ToyEngine
             pc.translate[0] = -1.0f - drawData->DisplayPos.x * pc.scale[0];
             pc.translate[1] = -1.0f - drawData->DisplayPos.y * pc.scale[1];
             pc.VertexDataPtr = vertexBuffer->m_gpuAddress;
+            
             vkCmdPushConstants(cmd, pipeline->getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
         }
 
@@ -207,8 +208,13 @@ namespace ToyEngine
         config.m_depthWrite = false;
         config.m_blending = true;
         config.m_cullMode = VK_CULL_MODE_NONE;
-        
-        m_pipeline = m_resourceManager->createPipeline(config, {m_textureLayout, m_samplerLayout});
+
+        VkPushConstantRange editorPushConstantRange{};
+        editorPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        editorPushConstantRange.offset = 0;
+        editorPushConstantRange.size = sizeof(EditorPipelineLayout);
+
+        m_pipeline = m_resourceManager->createPipeline(config, {m_textureLayout, m_samplerLayout}, {editorPushConstantRange});
     }
 
     void EditorLayer::createFontAtlas(const GpuContext& ctx)
