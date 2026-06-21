@@ -79,7 +79,6 @@ public:
     BufferHandle TransformBufferHandle;
 
     Scene scene;
-    std::vector<Actor*> actors;
     EditorLayer editorLayer;
 
     void MainLoop();
@@ -438,7 +437,7 @@ void EngineInstance::MainLoop()
 
     
     Mesh* testMesh = new Mesh();
-    testMesh->loadFromObj("assets/models/sponza.obj");
+    testMesh->loadFromObj("assets/models/dragon.obj");
 
     TextureHandle texture = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
     pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(texture));
@@ -466,7 +465,21 @@ void EngineInstance::MainLoop()
 
     Actor dragonActor = scene.createActor();
     dragonActor.addComponent<Mesh*>(testMesh);
-    actors.push_back(new Actor(dragonActor));
+
+    // Probably... a bit too convoluted for now...
+    uint32_t TIndex = dragonActor.getTransformIndex();
+    Transform& transformData = scene.transformSystem.getTransform(TIndex);
+    transformData.m_scale = glm::vec4(100.0, 100.0, 100.0, 1.0);
+
+    Actor dragonActor2 = scene.createActor();
+    dragonActor2.addComponent<Mesh*>(testMesh);
+
+    TIndex = dragonActor2.getTransformIndex();
+    Transform& transformData2 = scene.transformSystem.getTransform(TIndex);
+    transformData2.m_position = glm::vec4(50.0, 10.0, 10.0, 1.0);
+    transformData2.m_scale = glm::vec4(50.0, 50.0,50.0, 1.0);
+    
+    
 
     // Main pass config
     PipelineConfig config{};
@@ -596,8 +609,7 @@ void EngineInstance::MainLoop()
         camData.eyePos = camera.getPosition();
         Buffer* cameraBufferRef = resourceManager.getBuffer(cameraBufferHandle);
         cameraBufferRef->copyDataToBuffer(&camData, sizeof(GpuCameraData));
-
-
+        
         // Iterates and update all transform data
         // non-optimal at all, no need to do every frame and a lot of reasons, but... shortcuts
         scene.transformSystem.update();

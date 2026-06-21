@@ -33,13 +33,21 @@ void main()
 {
     uint threadId = gl_LocalInvocationID.x;
     uint meshletIndex = gl_WorkGroupID.x * gl_WorkGroupSize.x + threadId;
-    
+
+    // get transform
+    TransformData transform = TransformDataPtr(push.TransformDataAddress).transforms[push.TransformIndex];
+
+
     bool visible = false;
     if (meshletIndex < push.meshletCount)
     {
-        visible = !coneCull(MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex].coneApexCutoff, 
-                            MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex].coneAxis.xyz, 
-                            CameraBufferPtr(push.cameraBufferAddress).camera.eyePos);
+        Meshlet meshlet = MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex];
+        vec3 worldApex = vec3(transform.modelMatrix * vec4(meshlet.coneApexCutoff.xyz, 1.0));
+        vec3 worldAxis = normalize(mat3(transform.modelMatrix) * meshlet.coneAxis.xyz);
+        vec4 worldConeApexCutoff = vec4(worldApex, meshlet.coneApexCutoff.w);
+
+        visible = !coneCull(worldConeApexCutoff, worldAxis,
+        CameraBufferPtr(push.cameraBufferAddress).camera.eyePos);
     }
 
     uvec4 vote = subgroupBallot(visible);

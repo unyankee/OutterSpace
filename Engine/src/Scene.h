@@ -19,6 +19,12 @@ namespace ToyEngine
         std::vector<Transform> TransformsData;
         std::vector<uint32_t> freeList;
         // should check against MaxTransformsPerScene too... more shortcuts
+
+        Transform& getTransform(uint32_t Index)
+        {
+            return TransformsData[Index];
+        };
+        
         uint32_t alloc()
         {
             if (!freeList.empty())

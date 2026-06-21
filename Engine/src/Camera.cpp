@@ -35,7 +35,6 @@ namespace ToyEngine
     void Camera::setPerspective(float fovDeg, float aspect, float nearZ, float farZ)
     {
         m_projMatrix = glm::perspective(glm::radians(fovDeg), aspect, nearZ, farZ);
-        m_projMatrix[1][1] *= 1.f; // flip Y for Vulkan
     }
 
     void Camera::update()

@@ -8,7 +8,6 @@ namespace ToyEngine
     {
         entt::entity entity = m_registry.create();
         // Every Actor will be rendered, so we assign a transform to it
-        m_registry.emplace<Transform>(entity);
 
         const uint32_t transformIndex = transformSystem.alloc();
         m_registry.emplace<TransformIndex>(entity, transformIndex);

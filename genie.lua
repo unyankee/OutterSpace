@@ -38,6 +38,8 @@ project "Engine"
         "GLFW_EXPOSE_NATIVE_WIN32",
         "VK_USE_PLATFORM_WIN32_KHR",
         "_CRT_SECURE_NO_WARNINGS",
+        "GLM_FORCE_DEPTH_ZERO_TO_ONE",
+        "GLM_FORCE_RADIANS",
         -- Global path defines as raw string literals
         "ENGINE_PROJECT_ROOT=R\"(" .. projectRoot .. ")\"",
         "ENGINE_DIR=R\"(" .. engineDir .. ")\""

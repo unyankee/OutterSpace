@@ -64,7 +64,7 @@
       <AdditionalOptions>  %(AdditionalOptions)</AdditionalOptions>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;..\extern\imgui;..\extern\entt\src;..\extern\glm;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;ENGINE_PROJECT_ROOT=R&quot;(f:/ToyEngine/ToyEngine)&quot;;ENGINE_DIR=R&quot;(f:/ToyEngine/ToyEngine/Engine)&quot;;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_DEPTH_ZERO_TO_ONE;GLM_FORCE_RADIANS;ENGINE_PROJECT_ROOT=R&quot;(f:/ToyEngine/ToyEngine)&quot;;ENGINE_DIR=R&quot;(f:/ToyEngine/ToyEngine/Engine)&quot;;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -78,7 +78,7 @@
       <DiagnosticsFormat>Caret</DiagnosticsFormat>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;ENGINE_PROJECT_ROOT=R\&quot;(f:/ToyEngine/ToyEngine)\&quot;;ENGINE_DIR=R\&quot;(f:/ToyEngine/ToyEngine/Engine)\&quot;;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_DEPTH_ZERO_TO_ONE;GLM_FORCE_RADIANS;ENGINE_PROJECT_ROOT=R\&quot;(f:/ToyEngine/ToyEngine)\&quot;;ENGINE_DIR=R\&quot;(f:/ToyEngine/ToyEngine/Engine)\&quot;;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;..\extern\imgui;..\extern\entt\src;..\extern\glm;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
@@ -98,7 +98,7 @@
       <AdditionalOptions>  %(AdditionalOptions)</AdditionalOptions>
       <Optimization>MaxSpeed</Optimization>
       <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;..\extern\imgui;..\extern\entt\src;..\extern\glm;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;ENGINE_PROJECT_ROOT=R&quot;(f:/ToyEngine/ToyEngine)&quot;;ENGINE_DIR=R&quot;(f:/ToyEngine/ToyEngine/Engine)&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_DEPTH_ZERO_TO_ONE;GLM_FORCE_RADIANS;ENGINE_PROJECT_ROOT=R&quot;(f:/ToyEngine/ToyEngine)&quot;;ENGINE_DIR=R&quot;(f:/ToyEngine/ToyEngine/Engine)&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -111,7 +111,7 @@
       <DiagnosticsFormat>Caret</DiagnosticsFormat>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;ENGINE_PROJECT_ROOT=R\&quot;(f:/ToyEngine/ToyEngine)\&quot;;ENGINE_DIR=R\&quot;(f:/ToyEngine/ToyEngine/Engine)\&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_GLFW_WIN32;GLFW_EXPOSE_NATIVE_WIN32;VK_USE_PLATFORM_WIN32_KHR;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_DEPTH_ZERO_TO_ONE;GLM_FORCE_RADIANS;ENGINE_PROJECT_ROOT=R\&quot;(f:/ToyEngine/ToyEngine)\&quot;;ENGINE_DIR=R\&quot;(f:/ToyEngine/ToyEngine/Engine)\&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..;..\Engine;..\extern\meshoptimizer\src;..\extern\volk;..\extern\glfw\glfw-3.4\include;..\extern\imgui;..\extern\entt\src;..\extern\glm;$(VULKAN_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
