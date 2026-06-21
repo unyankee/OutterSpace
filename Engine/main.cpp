@@ -81,6 +81,9 @@ public:
     Scene scene;
     EditorLayer editorLayer;
 
+    // Naive manual implementation for now 
+    PassExecutor passExecutor;
+    
     void MainLoop();
     void InitInstance();
     void SelectPhysicalDevice();
@@ -271,6 +274,7 @@ void EngineInstance::CreateDevice()
     features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     features12.bufferDeviceAddress = VK_TRUE;
     features12.timelineSemaphore = VK_TRUE;
+    features12.drawIndirectCount = VK_TRUE;
     features12.pNext = &features13;
 
     VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{
@@ -437,7 +441,7 @@ void EngineInstance::MainLoop()
 
     
     Mesh* testMesh = new Mesh();
-    testMesh->loadFromObj("assets/models/dragon.obj");
+    testMesh->loadFromObj("assets/models/kitten.obj");
 
     TextureHandle texture = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
     pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(texture));
@@ -468,8 +472,7 @@ void EngineInstance::MainLoop()
         Actor dragonActor = scene.createActor();
         dragonActor.addComponent<Mesh*>(testMesh);
         
-        uint32_t TIndex = dragonActor.getTransformIndex();
-        Transform& transformData = scene.transformSystem.getTransform(TIndex);
+        Transform& transformData = scene.transformSystem.getTransform(dragonActor);
         transformData.m_scale = glm::vec4(60.0, 60.0, 60.0, 1.0);
         transformData.m_position = glm::vec4(0.0 + i * 25, 0.0, 0.0, 1.0);
     }
@@ -490,7 +493,7 @@ void EngineInstance::MainLoop()
     Pass mainPass;
     mainPass.name = "MainForwardPass";
     mainPass.pipeline = resourceManager.createPipeline(config, pipeline_manager.getGlobalDescriptorSetLayout(), { mainPushConstantRange });
-    mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, TransformBufferHandle = TransformBufferHandle, texture](
+    mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, CameraBufferHandle = cameraBufferHandle, TransformBufferHandle = TransformBufferHandle, texture](
         VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {
             // obviously not ideal, we could multidraw indirect if mesh is the same
@@ -498,11 +501,10 @@ void EngineInstance::MainLoop()
             auto view = ctx.scene.getRegistry().view<Mesh*, TransformIndex>();            
             for (const auto& [entity, mesh, transformIndex]  : view.each())
             {
-                //Actor actor(entity, &ctx.scene);
                 uint32_t meshletCount = (uint32_t)mesh->m_meshlets.size();
 
                 Buffer* vertexBuffer = ctx.resourceManager.getBuffer(vb);
-                Buffer* cameraBuffer = ctx.resourceManager.getBuffer(ctx.CameraBuffer);
+                Buffer* cameraBuffer = ctx.resourceManager.getBuffer(CameraBufferHandle);
                 Buffer* meshlets = ctx.resourceManager.getBuffer(meshletBuffer);
                 Buffer* Transform = ctx.resourceManager.getBuffer(TransformBufferHandle);
                 Buffer* meshletVertices = ctx.resourceManager.getBuffer(meshletVertexBuffer);
@@ -519,6 +521,16 @@ void EngineInstance::MainLoop()
                 Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
                 vkCmdPushConstants(cmd, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,
                                    sizeof(DefaultPipelineLayout), &push);
+
+                // The idea is to get a list of drawcommands at this stage automatically?
+                // It should be an isolated chunk of gpu commands that can be
+                // executed on parallel and the whole thing should live in this lambda
+                //
+                // Input should be some list of already pre filtered meshes + transforms?
+                // Push constant values, we might get some other variable to fill
+                // later then will assign stuff to the needed DefaultPipelineLayout, maybe?
+                // vkCmdDrawMeshTasksIndirectCountEXT();
+                
                 
                 vkCmdDrawMeshTasksEXT(cmd, divideAndRoundUp(meshletCount, 32), 1, 1);
             }
@@ -675,9 +687,8 @@ void EngineInstance::MainLoop()
         frameBatch.passes.push_back(editorPass);
 
         BufferHandle camBuffer = cameraBufferHandle;
-        PassContext ctx = {camBuffer, resourceManager, pipeline_manager, scene};
-        PassExecutor::execute(currentCommandBuffer, frameBatch, ctx);
-
+        PassContext ctx = {scene, resourceManager, pipeline_manager};
+        passExecutor.execute(currentCommandBuffer, frameBatch, ctx);
 
 
         

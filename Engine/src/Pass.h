@@ -23,10 +23,9 @@ namespace ToyEngine
 
     struct PassContext
     {
-        BufferHandle& CameraBuffer;
+        Scene& scene;
         ResourceManager& resourceManager;
         PipelineManager& pipelineManager;
-        Scene& scene;
     };
 
     struct Pass

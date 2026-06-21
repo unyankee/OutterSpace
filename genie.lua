@@ -28,7 +28,8 @@ project "Engine"
         "extern/imgui",
         "extern/entt/src",
         "extern/glm",
-        "$(VULKAN_SDK)/include"
+        "$(VULKAN_SDK)/include",
+        "extern/meshoptimizer/src",
     }
 
     defines {
@@ -83,6 +84,8 @@ project "Engine"
         "extern/glm/glm/**.hpp",
         "extern/glm/glm/**.h",
         "extern/glm/glm/**.inl",
+        --- meshoptimizer       
+        "extern/meshoptimizer/src/**.cpp",
     }
 
     vpaths {

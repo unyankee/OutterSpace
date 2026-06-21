@@ -467,6 +467,12 @@
     </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\src\indexgenerator.cpp">
     </ClCompile>
+    <ClCompile Include="..\extern\meshoptimizer\src\meshletcodec.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\meshoptimizer\src\meshletutils.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\meshoptimizer\src\opacitymap.cpp">
+    </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\src\overdrawoptimizer.cpp">
     </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\src\partition.cpp">
@@ -480,6 +486,8 @@
     <ClCompile Include="..\extern\meshoptimizer\src\spatialorder.cpp">
     </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\src\stripifier.cpp">
+    </ClCompile>
+    <ClCompile Include="..\extern\meshoptimizer\src\tangentspace.cpp">
     </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\src\vcacheoptimizer.cpp">
     </ClCompile>

@@ -53,7 +53,6 @@ struct EditorPipelineLayout
 	VkDeviceAddress VertexDataPtr;
 };
 
-
 struct Transform
 {
 	// will clear this part, since we should only have modelMatrix

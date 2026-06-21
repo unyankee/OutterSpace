@@ -5,7 +5,7 @@ namespace ToyEngine
 {
 
     constexpr float DefaultFarplane = 3000.0f;
-    constexpr float DefaultNearPlane = 0.1f;
+    constexpr float DefaultNearPlane = 0.01f;
     
 
     enum CameraMovement

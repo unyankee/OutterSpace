@@ -1415,6 +1415,15 @@
     <ClCompile Include="..\extern\meshoptimizer\src\indexgenerator.cpp">
       <Filter>Extern\meshoptimizer</Filter>
     </ClCompile>
+    <ClCompile Include="..\extern\meshoptimizer\src\meshletcodec.cpp">
+      <Filter>Extern\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\meshoptimizer\src\meshletutils.cpp">
+      <Filter>Extern\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\meshoptimizer\src\opacitymap.cpp">
+      <Filter>Extern\meshoptimizer</Filter>
+    </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\src\overdrawoptimizer.cpp">
       <Filter>Extern\meshoptimizer</Filter>
     </ClCompile>
@@ -1434,6 +1443,9 @@
       <Filter>Extern\meshoptimizer</Filter>
     </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\src\stripifier.cpp">
+      <Filter>Extern\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\meshoptimizer\src\tangentspace.cpp">
       <Filter>Extern\meshoptimizer</Filter>
     </ClCompile>
     <ClCompile Include="..\extern\meshoptimizer\src\vcacheoptimizer.cpp">

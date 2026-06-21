@@ -31,7 +31,7 @@ namespace ToyEngine
         float m_coneAxis[3] = {};
         float m_padding = 0.0f;
     };
-
+    
     struct Mesh
     {
         std::vector<Vertex> m_vertices;
@@ -44,6 +44,17 @@ namespace ToyEngine
 
     private:
         void buildMeshlets();
+    };
+
+    class MeshManager
+    {
+    public:
+        MeshManager();
+        ~MeshManager();
+
+
+
+        
     };
 
 }

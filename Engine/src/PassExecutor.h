@@ -8,6 +8,6 @@ namespace ToyEngine
     class PassExecutor
     {
     public:
-        static void execute(VkCommandBuffer cmd, const RenderBatch& batch, PassContext& ctx);
+        void execute(VkCommandBuffer cmd, const RenderBatch& batch, PassContext& ctx);
     };
 }

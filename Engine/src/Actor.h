@@ -55,8 +55,7 @@ namespace ToyEngine
 
         FORCEINLINE bool isValid() const { return m_entity != entt::null && m_scene != nullptr; }
         FORCEINLINE entt::entity getEntity() const { return m_entity; }
-        FORCEINLINE uint32_t getTransformIndex() const { return getComponent<TransformIndex>().index; }
-        
+                
     private:
         entt::entity m_entity = entt::null;
         Scene* m_scene = nullptr;
