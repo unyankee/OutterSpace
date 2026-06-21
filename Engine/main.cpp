@@ -463,23 +463,16 @@ void EngineInstance::MainLoop()
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletTriangles.data());
 
-    Actor dragonActor = scene.createActor();
-    dragonActor.addComponent<Mesh*>(testMesh);
-
-    // Probably... a bit too convoluted for now...
-    uint32_t TIndex = dragonActor.getTransformIndex();
-    Transform& transformData = scene.transformSystem.getTransform(TIndex);
-    transformData.m_scale = glm::vec4(100.0, 100.0, 100.0, 1.0);
-
-    Actor dragonActor2 = scene.createActor();
-    dragonActor2.addComponent<Mesh*>(testMesh);
-
-    TIndex = dragonActor2.getTransformIndex();
-    Transform& transformData2 = scene.transformSystem.getTransform(TIndex);
-    transformData2.m_position = glm::vec4(50.0, 10.0, 10.0, 1.0);
-    transformData2.m_scale = glm::vec4(50.0, 50.0,50.0, 1.0);
-    
-    
+    for(uint32_t i = 0; i < 10; ++i)
+    {
+        Actor dragonActor = scene.createActor();
+        dragonActor.addComponent<Mesh*>(testMesh);
+        
+        uint32_t TIndex = dragonActor.getTransformIndex();
+        Transform& transformData = scene.transformSystem.getTransform(TIndex);
+        transformData.m_scale = glm::vec4(60.0, 60.0, 60.0, 1.0);
+        transformData.m_position = glm::vec4(0.0 + i * 25, 0.0, 0.0, 1.0);
+    }
 
     // Main pass config
     PipelineConfig config{};

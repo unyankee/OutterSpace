@@ -34,9 +34,7 @@ void main()
     uint threadId = gl_LocalInvocationID.x;
     uint meshletIndex = gl_WorkGroupID.x * gl_WorkGroupSize.x + threadId;
 
-    // get transform
     TransformData transform = TransformDataPtr(push.TransformDataAddress).transforms[push.TransformIndex];
-
 
     bool visible = false;
     if (meshletIndex < push.meshletCount)
