@@ -500,6 +500,8 @@ void EngineInstance::MainLoop()
     mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, TransformBufferHandle = TransformBufferHandle, texture](
         VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {
+            // obviously not ideal, we could multidraw indirect if mesh is the same
+            // but this is not on that stage yet 
             auto view = ctx.scene.getRegistry().view<Mesh*, TransformIndex>();            
             for (const auto& [entity, mesh, transformIndex]  : view.each())
             {
