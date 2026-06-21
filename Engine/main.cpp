@@ -668,7 +668,7 @@ void EngineInstance::MainLoop()
             }
         };
         frameBatch.depthAttachment = {
-            DepthTextureHandle, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, {1.0f, 0}
+            DepthTextureHandle, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, {0.0f, 0} // reverse depth buffer, clears to 0
         };
         frameBatch.useDepth = true;
         frameBatch.passes.push_back(mainPass);

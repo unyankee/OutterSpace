@@ -23,7 +23,7 @@ namespace ToyEngine
         bool m_depthWrite = true;
         bool m_blending = false;
         bool m_useMeshShaders = false;
-        VkCompareOp m_depthCompareOp = VK_COMPARE_OP_LESS;
+        VkCompareOp m_depthCompareOp = VK_COMPARE_OP_GREATER; // Reverse depth by default
     };
 
     class Pipeline

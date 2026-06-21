@@ -34,7 +34,15 @@ namespace ToyEngine
 
     void Camera::setPerspective(float fovDeg, float aspect, float nearZ, float farZ)
     {
-        m_projMatrix = glm::perspective(glm::radians(fovDeg), aspect, nearZ, farZ);
+        //m_projMatrix = glm::perspective(glm::radians(fovDeg), aspect, nearZ, farZ);
+        // Reverse Depth here
+        float f = 1.0f / tan(glm::radians(fovDeg) / 2.0f);
+        m_projMatrix =  glm::mat4(
+            f / aspect, 0.0f,  0.0f,  0.0f,
+                      0.0f,    f,  0.0f,  0.0f,
+                      0.0f, 0.0f,  0.0f, -1.0f,
+                      0.0f, 0.0f, nearZ,  0.0f);
+        
     }
 
     void Camera::update()
