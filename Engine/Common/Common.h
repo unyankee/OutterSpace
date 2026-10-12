@@ -53,6 +53,8 @@ struct EditorPipelineLayout
 	VkDeviceAddress VertexDataPtr;
 };
 
+// This is incorrectly used as well, GPU should not use this one, there should be a lightweight version of just 4x3 mat
+// cutting corners for now
 struct Transform
 {
 	// will clear this part, since we should only have modelMatrix
@@ -62,6 +64,27 @@ struct Transform
 	glm::mat4x4 modelMatrix = glm::mat4(1);
 };
 
-struct TransformIndex {
-	uint32_t index;
+struct GPUTransform
+{
+	glm::mat4x3 modelMatrix = glm::mat4(1);
+};
+
+
+constexpr uint32_t MaxSupportedTexturess = 8;
+struct TextureCollection
+{
+	uint32_t Textures[MaxSupportedTexturess];
+	uint32_t TextureCount = 0;
+	uint32_t _padding[3];
+};
+
+// when rendering could iterate over Mesh+Material combo, and query transform idx?
+struct Material
+{
+	// Should this hold the textures?
+	// can have some settings to auto 
+	// set in the pipeline.
+	// stuff like backface culling, two-sided, 
+	// depth bias, etc...
+	TextureCollection textureCollection;
 };

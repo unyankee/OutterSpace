@@ -128,7 +128,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\Engine\src\Actor.h" />
+    <ClInclude Include="..\Engine\src\Supplier.h" />
     <ClInclude Include="..\Engine\src\Camera.h" />
     <ClInclude Include="..\Engine\src\EditorLayer.h" />
     <ClInclude Include="..\Engine\src\GpuResources.h" />
@@ -138,7 +138,7 @@
     <ClInclude Include="..\Engine\src\Pipeline.h" />
     <ClInclude Include="..\Engine\src\PipelineManager.h" />
     <ClInclude Include="..\Engine\src\ResourceManager.h" />
-    <ClInclude Include="..\Engine\src\Scene.h" />
+    <ClInclude Include="..\Engine\src\World.h" />
     <ClInclude Include="..\Engine\Common\Common.h" />
     <ClInclude Include="..\extern\volk\volk.h" />
     <ClInclude Include="..\extern\meshoptimizer\src\meshoptimizer.h" />
@@ -453,7 +453,7 @@
     </ClCompile>
     <ClCompile Include="..\Engine\src\ResourceManager.cpp">
     </ClCompile>
-    <ClCompile Include="..\Engine\src\Scene.cpp">
+    <ClCompile Include="..\Engine\src\World.cpp">
     </ClCompile>
     <ClCompile Include="..\extern\volk\volk.c">
     </ClCompile>

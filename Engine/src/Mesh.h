@@ -54,7 +54,7 @@ namespace ToyEngine
 
 
 
-        
+        std::vector<Mesh> Meshes;
     };
 
 }

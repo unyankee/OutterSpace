@@ -26,6 +26,6 @@ void main()
 
     float lightIntensity = max(dot(normalize(inNormal), normalize(vec3(0.5, 1.0, 0.3))), 0.2);
 
-    outColor = vec4(texColor.rgb * lightIntensity, texColor.a);
-    outColor = vec4(outMeshletDebugColor.rgb * lightIntensity, texColor.a);
+    //outColor = vec4(texColor.rgb * lightIntensity, texColor.a);
+    outColor = vec4(outMeshletDebugColor.rgb * lightIntensity, 1.0);
 }

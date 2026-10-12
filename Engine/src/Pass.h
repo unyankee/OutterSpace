@@ -11,7 +11,7 @@ namespace ToyEngine
 {
     class ResourceManager;
     class PipelineManager;
-    class Scene;
+    class World;
 
     struct PassAttachment
     {
@@ -23,7 +23,7 @@ namespace ToyEngine
 
     struct PassContext
     {
-        Scene& scene;
+        World& scene;
         ResourceManager& resourceManager;
         PipelineManager& pipelineManager;
     };

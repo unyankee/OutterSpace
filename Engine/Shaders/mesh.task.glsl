@@ -44,8 +44,8 @@ void main()
         vec3 worldAxis = normalize(mat3(transform.modelMatrix) * meshlet.coneAxis.xyz);
         vec4 worldConeApexCutoff = vec4(worldApex, meshlet.coneApexCutoff.w);
 
-        visible = !coneCull(worldConeApexCutoff, worldAxis,
-        CameraBufferPtr(push.cameraBufferAddress).camera.eyePos);
+        vec3 CameraEyePos = CameraBufferPtr(push.cameraBufferAddress).camera.eyePos;
+        visible = !coneCull(worldConeApexCutoff, worldAxis, CameraEyePos);
     }
 
     uvec4 vote = subgroupBallot(visible);

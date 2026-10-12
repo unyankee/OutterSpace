@@ -6,7 +6,7 @@
 #include <entt/entt.hpp>
 #include "Common/Common.h"
 
-#include "Actor.h"
+#include "Supplier.h"
 #include "GpuResources.h"
 #include "ResourceManager.h"
 #include <glm/glm.hpp>  
@@ -14,34 +14,26 @@
 
 namespace ToyEngine
 {
-    struct TransformManager
-    {
-        std::vector<Transform> TransformsData;
-        std::vector<uint32_t> freeList;
-
-        Transform& getTransform(Actor& actor);
-        uint32_t alloc();
-        void free(uint32_t idx);
-        void update();
-    };
-
-    class Scene
+    class World
     {
     public:
-        Scene() = default;
-        ~Scene() = default;
+        World() = default;
+        ~World() = default;
 
-        Actor createActor();
-        void destroyActor(Actor actor);
+        Supplier createSupplier();
+        void destroySupplier(Supplier actor);
 
         void update();
         
         FORCEINLINE entt::registry& getRegistry() { return m_registry; }
         FORCEINLINE const entt::registry& getRegistry() const { return m_registry; }
 
-        TransformManager transformSystem;
     private:
         entt::registry m_registry;
-
+        
+        // should create here an item that holds the prefiltered
+        // supplies from the scene?
+        // Something prepared for the "render thread", so we can just iterate over 
+        // commands and draw 
     };
 }

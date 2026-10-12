@@ -1,0 +1,255 @@
+# Blender 5.1.2 MTL File: 'None'
+# www.blender.org
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024BadgeA_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/BadgeA_DiffuseAOSO.png
+map_d C:/BadgeA_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_BadgeA_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024Base_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024Coloured_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Global_Texture_Coloured_Diffuse.png
+map_d C:/Global_Texture_Coloured_Diffuse.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024EngineA_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/EngineA_DiffuseAOSO.png
+map_d C:/EngineA_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_EngineA_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleAlpha8A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille8A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille8A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille8A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleAlphaTest7A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille7A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille7A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille7A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleNoAlpha1A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille1A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille1A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille1A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleNoAlpha2A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille2A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille2A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille2A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleNoAlpha3A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille3A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille3A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille3A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleNoAlpha4A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille4A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille4A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille4A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleNoAlpha5A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille5A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille5A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille5A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleNoAlpha6A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille6A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille6A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille6A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024GrilleNoAlpha9A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Grille9A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Grille9A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Grille9A_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024InteriorA_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/InteriorA_DiffuseAOSO.png
+map_d C:/InteriorA_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_InteriorA_Normal.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024LightA_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_LightA_Diffuse.png
+map_d C:/Subaru_BRZtS_2024_LightA_Diffuse.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024ManufacturerPlateA_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_ManufacturerPlateA_Diffuse.png
+map_d C:/Subaru_BRZtS_2024_ManufacturerPlateA_Diffuse.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024Paint_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.083000 0.329887 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024TexturedA_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_TexturedA_Diffuse.png
+map_d C:/Subaru_BRZtS_2024_TexturedA_Diffuse.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024Window_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024_CallipersCalliperA_Zone_a77a2b4
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_CalliperA_Zone_Diffuse.png
+map_d C:/Subaru_BRZtS_2024_CalliperA_Zone_Diffuse.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024_CallipersCalliperBadgeA_49a691a1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/CalliperBadgeA_Diffuse.png
+map_d C:/CalliperBadgeA_Diffuse.png
+
+newmtl S:Subaru_BRZtSRewardRecycled_2024_Wheel1A_3D_3DWheel1A_Material1
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Subaru_BRZtS_2024_Wheel1A_DiffuseAOSO.png
+map_d C:/Subaru_BRZtS_2024_Wheel1A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Subaru_BRZtS_2024_Wheel1A_Normal.png
+
+newmtl orange_glass
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.500000 0.230767 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl red_glass
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.500000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2

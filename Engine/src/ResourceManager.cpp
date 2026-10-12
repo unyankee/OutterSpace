@@ -340,6 +340,7 @@ namespace ToyEngine
         return pool;
     }
 
+    // not even calling it?? 
     void ResourceManager::destroyCommandPool(VkCommandPool commandPool)
     {
         if (commandPool == VK_NULL_HANDLE)

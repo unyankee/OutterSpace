@@ -103,7 +103,6 @@ namespace ToyEngine
         }
 
         VkDeviceSize offset = 0;
-        //vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer->m_buffer, &offset);
         vkCmdBindIndexBuffer(cmd, indexBuffer->m_buffer, 0, sizeof(ImDrawIdx) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
         int vtxOffset = 0;
