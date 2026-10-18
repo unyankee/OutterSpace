@@ -128,7 +128,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\Engine\src\Supplier.h" />
     <ClInclude Include="..\Engine\src\Camera.h" />
     <ClInclude Include="..\Engine\src\EditorLayer.h" />
     <ClInclude Include="..\Engine\src\GpuResources.h" />
@@ -138,6 +137,8 @@
     <ClInclude Include="..\Engine\src\Pipeline.h" />
     <ClInclude Include="..\Engine\src\PipelineManager.h" />
     <ClInclude Include="..\Engine\src\ResourceManager.h" />
+    <ClInclude Include="..\Engine\src\Supplier.h" />
+    <ClInclude Include="..\Engine\src\TransformSystem.h" />
     <ClInclude Include="..\Engine\src\World.h" />
     <ClInclude Include="..\Engine\Common\Common.h" />
     <ClInclude Include="..\extern\volk\volk.h" />
@@ -453,6 +454,8 @@
     </ClCompile>
     <ClCompile Include="..\Engine\src\ResourceManager.cpp">
     </ClCompile>
+    <ClCompile Include="..\Engine\src\TransformSystem.cpp">
+    </ClCompile>
     <ClCompile Include="..\Engine\src\World.cpp">
     </ClCompile>
     <ClCompile Include="..\extern\volk\volk.c">
@@ -555,6 +558,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\Engine\Shaders\common.glsl" />
+    <None Include="..\Engine\Shaders\mesh.frag.glsl" />
+    <None Include="..\Engine\Shaders\mesh.mesh.glsl" />
+    <None Include="..\Engine\Shaders\mesh.task.glsl" />
+    <None Include="..\Engine\Shaders\mesh.vert.glsl" />
+    <None Include="..\Engine\Shaders\compile_all_shaders.bat" />
+    <None Include="..\Engine\Shaders\interactive_compile_all_shaders.bat" />
     <None Include="..\extern\glm\glm\detail\func_common.inl" />
     <None Include="..\extern\glm\glm\detail\func_common_simd.inl" />
     <None Include="..\extern\glm\glm\detail\func_exponential.inl" />

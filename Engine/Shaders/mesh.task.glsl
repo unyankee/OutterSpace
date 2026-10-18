@@ -34,14 +34,17 @@ void main()
     uint threadId = gl_LocalInvocationID.x;
     uint meshletIndex = gl_WorkGroupID.x * gl_WorkGroupSize.x + threadId;
 
-    TransformData transform = TransformDataPtr(push.TransformDataAddress).transforms[push.TransformIndex];
+    SuppliesIndirectionData supply = SuppliesIndirectionDataPtr(push.SuppliesIndirectionDataAddress).entries[push.InstanceID];
+    MeshRegistryData mesh = MeshRegistryDataPtr(push.MeshRegistryDataAddress).entries[supply.meshID];
+    TransformData transform = TransformDataPtr(push.TransformDataAddress).transforms[supply.transformIdx];
+    mat4 modelMatrix = expandTransform(transform);
 
     bool visible = false;
-    if (meshletIndex < push.meshletCount)
+    if (meshletIndex < mesh.meshletCount)
     {
-        Meshlet meshlet = MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex];
-        vec3 worldApex = vec3(transform.modelMatrix * vec4(meshlet.coneApexCutoff.xyz, 1.0));
-        vec3 worldAxis = normalize(mat3(transform.modelMatrix) * meshlet.coneAxis.xyz);
+        Meshlet meshlet = MeshletBufferPtr(push.meshletBufferAddress).meshlets[mesh.meshletOffset + meshletIndex];
+        vec3 worldApex = vec3(modelMatrix * vec4(meshlet.coneApexCutoff.xyz, 1.0));
+        vec3 worldAxis = normalize(mat3(modelMatrix) * meshlet.coneAxis.xyz);
         vec4 worldConeApexCutoff = vec4(worldApex, meshlet.coneApexCutoff.w);
 
         vec3 CameraEyePos = CameraBufferPtr(push.cameraBufferAddress).camera.eyePos;

@@ -14,6 +14,7 @@
 #include "src/PipelineManager.h"
 #include "src/Camera.h"
 #include "src/Mesh.h"
+#include "src/TransformSystem.h"
 #include "src/GpuResources.h"
 #include "src/ResourceManager.h"
 #include "src/Pipeline.h"
@@ -25,7 +26,6 @@
 #include <imgui.h>
 
 
-constexpr uint32_t MaxTransformsPerScene = 1 << 18;
 constexpr uint32_t StartupWidthResolution = 1920;
 constexpr uint32_t StartupHeightResolution = 1080;
 
@@ -37,14 +37,6 @@ struct GpuCameraData
     glm::mat4 proj;
     glm::vec3 eyePos;
     float padding;
-};
-
-struct SuppliesIndirection // should be compressed, right now using uint32?
-{
-    uint32_t TextureIdx; 
-    uint32_t TransformIdx;
-    // Vertex buffer starting point will be here as well? 
-    // this will be derived from the mesh data
 };
 
 struct Swapchain
@@ -84,12 +76,14 @@ public:
     Camera camera;
 
     BufferHandle cameraBufferHandle;
-    BufferHandle TransformBufferHandle;
+
     BufferHandle SuppliesIndirectionHandle; // map to actor? supplies where to put components?
 
     World world;
     EditorLayer editorLayer;
 
+    MeshSystem meshSystem;
+    TransformSystem transformSystem;
     // Naive manual implementation for now 
     PassExecutor passExecutor;
     
@@ -214,6 +208,8 @@ void EngineInstance::InitInstance()
     resourceManager.init(gpuContext);
     gpuContext.m_commandPool = resourceManager.createCommandPool(FamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
     pipeline_manager.init(Device);
+    meshSystem.Init(resourceManager);
+    transformSystem.init(resourceManager);
 
     camera.setPerspective(70.f, (float)StartupWidthResolution / (float)StartupHeightResolution);
     camera.update();
@@ -225,16 +221,8 @@ void EngineInstance::InitInstance()
                                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
     // TODO: not used yet, need to investigate how to process all the draw commands, then will investigate lighting
-    SuppliesIndirectionHandle = resourceManager.createBuffer(sizeof(SuppliesIndirection),   // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-                                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |       // Should not be cpu visible for perf though
-                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    // Not the best, since this one is mapped to cpu, so first will got it working,
-    // then will update with a gpu only buffer
-    TransformBufferHandle = resourceManager.createBuffer(sizeof(Transform) * MaxTransformsPerScene,
-                                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+    SuppliesIndirectionHandle = resourceManager.createBuffer(sizeof(SuppliesIndirection) * MaxTransformsPerScene,
+                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -271,7 +259,11 @@ void EngineInstance::CreateDevice()
     DeviceQueueCreateInfo.queueCount = 1;
     DeviceQueueCreateInfo.pQueuePriorities = QueuePriorities;
 
-    const char* Extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_MESH_SHADER_EXTENSION_NAME};
+    const char* Extensions[] = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_MESH_SHADER_EXTENSION_NAME,
+        VK_KHR_DEVICE_ADDRESS_COMMANDS_EXTENSION_NAME
+    };
     VkDeviceCreateInfo DeviceCreateInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     DeviceCreateInfo.queueCreateInfoCount = 1;
     DeviceCreateInfo.pQueueCreateInfos = &DeviceQueueCreateInfo;
@@ -283,12 +275,19 @@ void EngineInstance::CreateDevice()
     features13.dynamicRendering = VK_TRUE;
     features13.maintenance4 = VK_TRUE;
 
+    VkPhysicalDeviceDeviceAddressCommandsFeaturesKHR addressCommandsFeatures{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_ADDRESS_COMMANDS_FEATURES_KHR
+    };
+    addressCommandsFeatures.deviceAddressCommands = VK_TRUE;
+    features13.pNext = &addressCommandsFeatures;
+
     VkPhysicalDeviceVulkan12Features features12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     features12.descriptorBindingPartiallyBound = VK_TRUE;
     features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     features12.bufferDeviceAddress = VK_TRUE;
+    features12.scalarBlockLayout = VK_TRUE;
     features12.timelineSemaphore = VK_TRUE;
     features12.drawIndirectCount = VK_TRUE;
     features12.pNext = &features13;
@@ -455,49 +454,43 @@ void EngineInstance::MainLoop()
     VkShaderModule MeshMesh = Pipeline::loadShader(Device, "Shaders/mesh.mesh.spv");
     VkShaderModule MeshFs = Pipeline::loadShader(Device, "Shaders/mesh.frag.spv");
 
+    // TODO: want to create the vertex buffer insiude the mesh system for now
+    // so is the big buffer, then want to populate the SuppliesIndirection using Mesh id as per global per data offsets
+    // and will do the same to the material
     
-    Mesh* testMesh = new Mesh();
-    testMesh->loadFromObj("assets/models/brz/brz.obj");
-
+    // afterwards, replace shaders and will populate manually the buffers driving this with indirect
+    // then will do simple shadows and then willstart lightiing
+    Mesh* testMesh = meshSystem.registerMesh("assets/models/brz/brz.obj", resourceManager);
+    Mesh* testMesh2 = meshSystem.registerMesh("assets/models/suzanne.obj", resourceManager);
+    
     TextureHandle TextureTest = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
     pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(TextureTest));
 
-    //  This should not be here, this is gpu mesh data, should not be exposed7 
-    BufferHandle vb = resourceManager.createBuffer((uint32_t)(testMesh->m_vertices.size() * sizeof(Vertex)),
-                                                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_vertices.data());
-
-    BufferHandle meshletBuffer = resourceManager.createBuffer((uint32_t)(testMesh->m_meshlets.size() * sizeof(Meshlet)),
-                                                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                                              testMesh->m_meshlets.data());
-
-    BufferHandle meshletVertexBuffer = resourceManager.createBuffer(
-        (uint32_t)(testMesh->m_meshletVertices.size() * sizeof(uint32_t)),
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletVertices.data());
-
-    BufferHandle meshletTriangleBuffer = resourceManager.createBuffer(
-        (uint32_t)(testMesh->m_meshletTriangles.size() * sizeof(uint32_t)),
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, testMesh->m_meshletTriangles.data());
-
     // hardcoding for testing
-    Material mat;
+    Material mat{};
     mat.textureCollection.Textures[0] = 0;
     mat.textureCollection.TextureCount = 1;
     
     for(uint32_t i = 0; i < 1; ++i)
     {
-        Supplier dragonActor = world.createSupplier();
-        dragonActor.addComponent<Mesh>(*testMesh);
-        dragonActor.addComponent<Material>(mat);
+        Supplier tes = world.createSupplier();
+        tes.addComponent<Mesh>(*testMesh);
+        tes.addComponent<Material>(mat);
         
-        Transform& transformData = dragonActor.getComponent<Transform>();
+        Transform& transformData = tes.getComponent<Transform>();
         transformData.m_scale = glm::vec4(60.0, 60.0, 60.0, 1.0);
         transformData.m_position = glm::vec4(0.0 + i * 25, 0.0, 0.0, 1.0);
+    }
+
+    for(uint32_t i = 0; i < 1; ++i)
+    {
+        Supplier test2 = world.createSupplier();
+        test2.addComponent<Mesh>(*testMesh2);
+        test2.addComponent<Material>(mat);
+        
+        Transform& transformData = test2.getComponent<Transform>();
+        transformData.m_scale = glm::vec4(15.0, 15.0, 15.0, 1.0);
+        transformData.m_position = glm::vec4(55.0 + i * 25, 35.0, -80.0, 1.0);
     }
 
     // Main pass config
@@ -513,37 +506,71 @@ void EngineInstance::MainLoop()
     mainPushConstantRange.offset = 0;
     mainPushConstantRange.size = sizeof(DefaultPipelineLayout);
 
+    // TODO:
+    // NXT is finding a way to produce how many things to draw, multiple meshes and etc..
+    // Need to submit to gpu new set of buffers, meshes registries for offsets too!
+    // that will allow to render everything with a single drawcall
+    // bucketing by material will come later down the lane!
+    
+    // Testing Idea?
+    // Need to produce a set of new passes,
+    // a compute shader that iterates over a SupplierIndirection, there needs to be 1 per each actor in scene
+    // it culls per actor -> writes indexes of surviving meshes with MeshID, InstanceId (the info of the supplier indirection)
+    // Then, another compute that writes the following commands 
+    // 
+    //  {
+    //      { Mesh ID, Isntance ID / supplierIndirection)},                   // Draw call 0: 
+    //      { Mesh ID, Isntance ID / supplierIndirection)},                   // Draw call 1: 
+    //      { Mesh ID, Isntance ID / supplierIndirection)},                   // Draw call 2: 
+    //      { Mesh ID, Isntance ID / supplierIndirection)},                   // Draw call 3: 
+    //  };
+    // 
+    //   Transforms it into the draw indirect command, fetches meshid data, and produces the draw indirect command
+    //  {
+    //      { MeshelementsCount / 32 (divideAndRoundUp), Isntance 0 (supplyIndirection?)}, // Draw call 0: 
+    //      { MeshelementsCount / 32,                    Isntance 1 (supplyIndirection?)}, // Draw call 1: 
+    //      { MeshelementsCount / 32,                    Isntance 2 (supplyIndirection?)}  // Draw call 2: 
+    //      { MeshelementsCount / 32,                    Isntance 3 (supplyIndirection?)}  // Draw call 3: 
+    //      { MeshelementsCount / 32,                    Isntance 4 (supplyIndirection?)}  // Draw call 4: 
+    //  };
+    // 
+    // 
+    // 
+    // 
+    
+     
+
+    
     Pass mainPass;
     mainPass.name = "MainForwardPass";
     mainPass.pipeline = resourceManager.createPipeline(config, pipeline_manager.getGlobalDescriptorSetLayout(), { mainPushConstantRange });
-    mainPass.execute = [vb, meshletBuffer, meshletVertexBuffer, meshletTriangleBuffer, CameraBufferHandle = cameraBufferHandle, TransformBufferHandle = TransformBufferHandle, TextureTest](
+    mainPass.execute = [MeshSystem = meshSystem, CameraBufferHandle = cameraBufferHandle, SuppliesIndirectionBufferHandle = SuppliesIndirectionHandle, TransformBufferHandle = transformSystem.getGpuBufferHandle()](
         VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {
             // obviously not ideal, we could multidraw indirect if mesh is the same
             // but this is not on that stage yet 
-            auto view = ctx.scene.getRegistry().view<Mesh, Material>();      
+            auto view = ctx.scene.getRegistry().view<Transform, Mesh, Material>();      
             // tmp patch as well
-            uint32_t counter = 0;
-            for (const auto& [entity, mesh, material]  : view.each())
+            uint32_t instanceID = 0;
+            for (const auto& [entity, transform, mesh, material] : view.each())
             {
-                uint32_t meshletCount = (uint32_t)mesh.m_meshlets.size();
+                // hacked around while testing gpu scene buffer
+                uint32_t meshletCount = mesh.Data.MeshletsCount;
 
-                Buffer* vertexBuffer = ctx.resourceManager.getBuffer(vb);
+                Buffer* vertexBuffer = ctx.resourceManager.getBuffer(MeshSystem.vbHandle);
                 Buffer* cameraBuffer = ctx.resourceManager.getBuffer(CameraBufferHandle);
-                Buffer* meshlets = ctx.resourceManager.getBuffer(meshletBuffer);
+                Buffer* meshlets = ctx.resourceManager.getBuffer(MeshSystem.meshletHandle);
                 Buffer* Transform = ctx.resourceManager.getBuffer(TransformBufferHandle);
-                Buffer* meshletVertices = ctx.resourceManager.getBuffer(meshletVertexBuffer);
-                Buffer* meshletTriangles = ctx.resourceManager.getBuffer(meshletTriangleBuffer);
+                Buffer* suppliesIndirectionBuffer = ctx.resourceManager.getBuffer(SuppliesIndirectionBufferHandle);
+                Buffer* meshletVertices = ctx.resourceManager.getBuffer(MeshSystem.meshletVertexHandle);
+                Buffer* meshletTriangles = ctx.resourceManager.getBuffer(MeshSystem.meshletTriangleHandle);
                 //Texture* mainTexture = ctx.resourceManager.getTexture(TextureTest);
-                const uint32_t TextureIndex = material.textureCollection.Textures[0]; // Now, assuming everything is already in the right place
-
-                const uint32_t defaultIndirection = 0;
-                
                 DefaultPipelineLayout push = {
                     vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
                     meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
-                    meshletTriangles->m_gpuAddress, Transform->m_gpuAddress, TextureIndex, 0,
-                    meshletCount, counter++
+                    meshletTriangles->m_gpuAddress, Transform->m_gpuAddress,
+                    suppliesIndirectionBuffer->m_gpuAddress,
+                    ctx.resourceManager.getBuffer(MeshSystem.meshRegistryHandle)->m_gpuAddress, instanceID
                 };
 
                 Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
@@ -555,13 +582,14 @@ void EngineInstance::MainLoop()
                 // executed on parallel and the whole thing should live in this lambda
                 //
                 // Input should be some list of already pre filtered meshes + transforms?
+                //
                 // Push constant values, we might get some other variable to fill
                 // later then will assign stuff to the needed DefaultPipelineLayout, maybe?
                 // vkCmdDrawMeshTasksIndirectCountEXT();
                 vkCmdDrawMeshTasksEXT(cmd, divideAndRoundUp(meshletCount, 32), 1, 1);
+                ++instanceID;
             }
         };
-
     Pass editorPass;
     editorPass.name = "EditorPass";
     editorPass.pipeline = editorLayer.GetPipeline();
@@ -572,6 +600,8 @@ void EngineInstance::MainLoop()
             editorLayer.render(cmd, swapchain.width, swapchain.height);
         };
 
+    std::vector<SuppliesIndirection> SceneSuppliesIndirection;
+    SceneSuppliesIndirection.reserve(MaxTransformsPerScene);
     double lastFrame = glfwGetTime();
     while (!glfwWindowShouldClose(window))
     {
@@ -635,6 +665,8 @@ void EngineInstance::MainLoop()
             camera.setPerspective(70.f, (float)Width / (float)Height);
         }
 
+        meshSystem.update(resourceManager);
+        
         camera.update();
         GpuCameraData camData;
         camData.view = camera.getViewMatrix();
@@ -643,43 +675,37 @@ void EngineInstance::MainLoop()
         Buffer* cameraBufferRef = resourceManager.getBuffer(cameraBufferHandle);
         cameraBufferRef->copyDataToBuffer(&camData, sizeof(GpuCameraData));
         
-        // Build transform gpu buffer temporary here, 
-        // This should be a function  dealing with this, handling dirty transforms
-        // handling, reparenting, parenting, detaching, etc etc...
-        Transform WorldTransforms[256]; // fixed for now
-        uint32_t counter = 0;
-        // build WorldTransforms locally for now
-        auto&& TransformView = world.getRegistry().view<Transform>();            
-        for (const auto& [entity, transform]  : TransformView.each())
+        transformSystem.update(world, resourceManager);
+
+        SceneSuppliesIndirection.clear();
+        auto&& RenderableView = world.getRegistry().view<Transform, Mesh, Material>();
+        for (const auto& [entity, transform, mesh, material] : RenderableView.each())
         {
-            const uint32_t IndirectionID = counter++;
-            Transform& TransRef = WorldTransforms[IndirectionID];
-            SuppliesIndirection suppliesIndirection;
-            suppliesIndirection.TextureIdx = 0; // used texture -> get texture id
-            // not correct, but I just want to render meshes, possible idea, a component that 
-            // has the id of the transform in the (not yet created) GPUTransformData (4x3 mat only)
-            suppliesIndirection.TransformIdx = IndirectionID; 
-            
-            glm::mat4 t = glm::translate(glm::mat4(1.f), glm::vec3(transform.m_position));
-
-            glm::mat4 rx = glm::rotate(glm::mat4(1.f), glm::radians(transform.m_rotation.x), glm::vec3(1, 0, 0));
-            glm::mat4 ry = glm::rotate(glm::mat4(1.f), glm::radians(transform.m_rotation.y), glm::vec3(0, 1, 0));
-            glm::mat4 rz = glm::rotate(glm::mat4(1.f), glm::radians(transform.m_rotation.z), glm::vec3(0, 0, 1));
-                
-            glm::mat4 s = glm::scale(glm::mat4(1.f), glm::vec3(transform.m_scale));
-                
-            transform.modelMatrix = t * (rz * ry * rx) * s;
-            // Set in the array this transform
-            TransRef = transform;
-            //
+            const uint32_t instanceID = static_cast<uint32_t>(SceneSuppliesIndirection.size());
+            if (instanceID >= MaxTransformsPerScene)
             {
-                assert(counter < 255);
+                assert(false && "Scene exceeds MaxTransformsPerScene");
+                break;
             }
-        }
-        
-        Buffer* TranformBufferRef = resourceManager.getBuffer(TransformBufferHandle);
-        TranformBufferRef->copyDataToBuffer(&WorldTransforms[0], sizeof(Transform) * 256);
 
+            assert(mesh.Id < meshSystem.Registry.size());
+            assert(meshSystem.Registry[mesh.Id].MeshletCount == mesh.Data.MeshletsCount &&
+                   "Mesh component count does not match its mesh registry entry");
+
+            const uint32_t transformIndex = world.getRegistry().get<TransformID>(entity).transformId;
+            SuppliesIndirection indirection{};
+            indirection.MaterialData = material;
+            indirection.TransformIdx = transformIndex;
+            indirection.MeshID = mesh.Id;
+            SceneSuppliesIndirection.push_back(indirection);
+        }
+
+        Buffer* suppliesIndirectionBufferRef = resourceManager.getBuffer(SuppliesIndirectionHandle);
+        if (!SceneSuppliesIndirection.empty())
+        {
+            suppliesIndirectionBufferRef->copyDataToBuffer(SceneSuppliesIndirection.data(),
+                static_cast<uint32_t>(SceneSuppliesIndirection.size() * sizeof(SuppliesIndirection)));
+        }
 
         uint32_t frameIndex = timelineValue % MAX_FRAMES_IN_FLIGHT;
         uint64_t waitValue = timelineValue >= MAX_FRAMES_IN_FLIGHT ? timelineValue - MAX_FRAMES_IN_FLIGHT + 1 : 0;
@@ -692,7 +718,6 @@ void EngineInstance::MainLoop()
             waitInfo.pValues = &waitValue;
             vkWaitSemaphores(Device, &waitInfo, ~0ull);
         }
-
         VkSemaphore acquireSemaphore = acquireSemaphores[frameIndex];
         VkSemaphore submitSemaphore = submitSemaphores[frameIndex];
         VkCommandPool currentCommandPool = commandPools[frameIndex];
@@ -740,6 +765,7 @@ void EngineInstance::MainLoop()
             DepthTextureHandle, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, {0.0f, 0} // reverse depth buffer, clears to 0
         };
         frameBatch.useDepth = true;
+        
         frameBatch.passes.push_back(mainPass);
         frameBatch.passes.push_back(editorPass);
 

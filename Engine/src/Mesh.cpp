@@ -11,8 +11,148 @@
 
 namespace ToyEngine
 {
+ 
+    void MeshSystem::Init(ResourceManager& resourceManager)
+    {
+        // For now, lets focus on pre allocating blindly quite some big buffers
+        // that are going to be filled with vertex/meshlet data, 200mb each
+        constexpr uint64_t DefaultBufferBytes = 200ull * 1024 * 1024;
 
-    bool Mesh::loadFromObj(const char* path)
+        constexpr uint32_t DefaultVertexBufferAllocation              = DefaultBufferBytes / sizeof(Vertex);
+        constexpr uint32_t DefaultMeshletsBufferAllocation            = DefaultBufferBytes / sizeof(Meshlet);
+        constexpr uint32_t DefaultMeshletVertexIndexBufferAllocation  = DefaultBufferBytes / sizeof(uint32_t);
+        constexpr uint32_t DefaultMeshletTriIndexBufferAllocation     = DefaultBufferBytes / sizeof(uint32_t);
+
+        static_assert(sizeof(Vertex) == 32);
+        static_assert(sizeof(Meshlet) == 64);
+        
+        vbHandle = resourceManager.createBuffer((uint32_t)(DefaultVertexBufferAllocation * sizeof(Vertex)),
+                                               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                               VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+
+        meshletHandle = resourceManager.createBuffer((uint32_t)(DefaultMeshletsBufferAllocation * sizeof(Meshlet)),
+                                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                                                  nullptr);
+
+        meshletVertexHandle = resourceManager.createBuffer(
+            (uint32_t)(DefaultMeshletVertexIndexBufferAllocation * sizeof(uint32_t)),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+
+        meshRegistryHandle = resourceManager.createBuffer(static_cast<uint32_t>(sizeof(MeshRegistry) * MaxTransformsPerScene),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, nullptr);
+
+        meshletTriangleHandle = resourceManager.createBuffer(
+            (uint32_t)(DefaultMeshletTriIndexBufferAllocation * sizeof(uint32_t)),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+    }
+
+    void MeshSystem::UpdateBuffers(ResourceManager& resourceManager)
+    {
+        // These are gpu data, they do not exist on cpu, so need an auxiliar buffer with the new data, and then copied over
+        // in the subsection required
+        // Get size between current data and new data, area that needs an update
+        const MeshRegistry& NewRegistry = Registry[LastUpdated];
+        const uint32_t SizeVB = RequestedMeshRegistry.VertexOffset - CurrentMeshRegistry.VertexOffset;
+        const uint32_t SizeMeslets = RequestedMeshRegistry.MeshletOffset - CurrentMeshRegistry.MeshletOffset;
+        const uint32_t SizeMesletVertexInd = RequestedMeshRegistry.MeshletVertexOffset - CurrentMeshRegistry.MeshletVertexOffset;
+        const uint32_t SizeMesletTris = RequestedMeshRegistry.MeshletTriangleOffset - CurrentMeshRegistry.MeshletTriangleOffset;
+
+        const Vertex* srcVertices = m_vertices.data() + CurrentMeshRegistry.VertexOffset;
+        const Meshlet* srcMeshlets = m_meshlets.data() + CurrentMeshRegistry.MeshletOffset;
+        const uint32_t* srcMeshVerts = m_meshletVertices.data() + CurrentMeshRegistry.MeshletVertexOffset;
+        const uint32_t* srcMeshTris = m_meshletTriangles.data() + CurrentMeshRegistry.MeshletTriangleOffset;
+
+        
+        BufferHandle StagingvbHandle = resourceManager.createBuffer((uint32_t)(SizeVB * sizeof(Vertex)),
+                                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, srcVertices);
+
+        BufferHandle StagingMeshletHandle = resourceManager.createBuffer((uint32_t)(SizeMeslets * sizeof(Meshlet)),
+                                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, srcMeshlets);
+
+        BufferHandle StagingMeshletVertexHandle = resourceManager.createBuffer(
+            (uint32_t)(SizeMesletVertexInd * sizeof(uint32_t)),
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, srcMeshVerts);
+
+        BufferHandle StagingMeshletTriangleHandle = resourceManager.createBuffer(
+            (uint32_t)(SizeMesletTris * sizeof(uint32_t)),
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, srcMeshTris);
+        
+        
+        resourceManager.copyToBufferRegion(StagingvbHandle, vbHandle, SizeVB * sizeof(Vertex), 0, CurrentMeshRegistry.VertexOffset * sizeof(Vertex));
+        resourceManager.copyToBufferRegion(StagingMeshletHandle, meshletHandle, SizeMeslets * sizeof(Meshlet), 0, CurrentMeshRegistry.MeshletOffset * sizeof(Meshlet));
+        resourceManager.copyToBufferRegion(StagingMeshletVertexHandle, meshletVertexHandle, SizeMesletVertexInd * sizeof(uint32_t), 0, CurrentMeshRegistry.MeshletVertexOffset * sizeof(uint32_t));
+        resourceManager.copyToBufferRegion(StagingMeshletTriangleHandle, meshletTriangleHandle, SizeMesletTris * sizeof(uint32_t), 0, CurrentMeshRegistry.MeshletTriangleOffset * sizeof(uint32_t));        
+        
+        
+        resourceManager.destroyBuffer(StagingvbHandle);
+        resourceManager.destroyBuffer(StagingMeshletHandle);
+        resourceManager.destroyBuffer(StagingMeshletVertexHandle);
+        resourceManager.destroyBuffer(StagingMeshletTriangleHandle);
+    }
+
+    Mesh* MeshSystem::registerMesh(const char* path, ResourceManager& resourceManager)
+    {
+        //bad bad...
+        Mesh mesh;
+        mesh.Id = Meshes.size();
+        
+        std::vector<Vertex> LocalVertices;
+        std::vector<uint32_t> LocalIndices;
+        
+        std::vector<Meshlet> LocalMeshlets;
+        std::vector<uint32_t> LocalMeshletVertices;
+        std::vector<uint32_t> LocalMeshletTriangles;
+        
+        loadFromObj(path, LocalVertices, LocalIndices, LocalMeshlets, LocalMeshletVertices,LocalMeshletTriangles);        
+        
+        MeshRegistry meshOffsets = RequestedMeshRegistry;
+        meshOffsets.MeshletCount = static_cast<uint32_t>(LocalMeshlets.size());
+        assert(Registry.size() < MaxTransformsPerScene && "Mesh registry exceeds configured capacity");
+        Registry.push_back(meshOffsets);
+
+        // naivest
+        RequestedMeshRegistry.VertexOffset += LocalVertices.size();
+        RequestedMeshRegistry.MeshletOffset += LocalMeshlets.size();
+        RequestedMeshRegistry.MeshletTriangleOffset += LocalMeshletTriangles.size();
+        RequestedMeshRegistry.MeshletVertexOffset += LocalMeshletVertices.size();
+        
+        m_vertices.insert(m_vertices.end(), LocalVertices.begin(), LocalVertices.end());
+        m_indices.insert(m_indices.end(), LocalIndices.begin(), LocalIndices.end());
+        m_meshlets.insert(m_meshlets.end(), LocalMeshlets.begin(), LocalMeshlets.end());
+        m_meshletVertices.insert(m_meshletVertices.end(), LocalMeshletVertices.begin(), LocalMeshletVertices.end());
+        m_meshletTriangles.insert(m_meshletTriangles.end(), LocalMeshletTriangles.begin(), LocalMeshletTriangles.end());
+        
+        mesh.Data.VertexCount = LocalVertices.size();
+        mesh.Data.MeshleVertexIndexCount = LocalMeshletVertices.size();
+        mesh.Data.MeshletTrianglesCount = LocalMeshletTriangles.size();
+        mesh.Data.MeshletsCount = LocalMeshlets.size();
+        
+        Meshes.emplace_back(mesh);
+        
+        
+        // cutting corners
+        return &Meshes[mesh.Id];
+    }
+
+    bool MeshSystem::loadFromObj(const char* path, std::vector<Vertex>& LocalVertices,
+                                 std::vector<uint32_t>& LocalIndices,
+                                 std::vector<Meshlet>& LocalMeshlets,
+                                 std::vector<uint32_t>& LocalMeshletVertices,
+                                 std::vector<uint32_t>& LocalMeshletTriangles)
     {
         if (!path)
         {
@@ -28,8 +168,8 @@ namespace ToyEngine
             return false;
         }
 
-        m_vertices.clear();
-        m_indices.clear();
+        LocalVertices.clear();
+        LocalIndices.clear();
 
         std::vector<Vertex> unrolledVertices;
         unrolledVertices.reserve(mesh->face_count * 3);
@@ -94,32 +234,35 @@ namespace ToyEngine
             sizeof(Vertex)
         );
 
-        m_vertices.resize(uniqueVertexCount);
-        m_indices.resize(totalIndices);
+        LocalVertices.resize(uniqueVertexCount);
+        LocalIndices.resize(totalIndices);
 
-        meshopt_remapIndexBuffer(m_indices.data(), nullptr, totalIndices, remap.data());
-        meshopt_remapVertexBuffer(m_vertices.data(), unrolledVertices.data(), totalIndices, sizeof(Vertex), remap.data());
+        meshopt_remapIndexBuffer(LocalIndices.data(), nullptr, totalIndices, remap.data());
+        meshopt_remapVertexBuffer(LocalVertices.data(), unrolledVertices.data(), totalIndices, sizeof(Vertex), remap.data());
 
-        meshopt_optimizeVertexCache(m_indices.data(), m_indices.data(), totalIndices, uniqueVertexCount);
-        buildMeshlets();
+        meshopt_optimizeVertexCache(LocalIndices.data(), LocalIndices.data(), totalIndices, uniqueVertexCount);
+        buildMeshlets(LocalVertices, LocalIndices, LocalMeshlets, LocalMeshletVertices,LocalMeshletTriangles);
 
         fast_obj_destroy(mesh);
 
         return true;
     }
 
-    void Mesh::buildMeshlets()
+    void MeshSystem::buildMeshlets(std::vector<Vertex>& LocalVertices, std::vector<uint32_t>& LocalIndices,
+                         std::vector<Meshlet>& LocalMeshlets,
+                         std::vector<uint32_t>& LocalMeshletVertices,
+                         std::vector<uint32_t>& LocalMeshletTriangles)
     {
-        m_meshlets.clear();
-        m_meshletVertices.clear();
-        m_meshletTriangles.clear();
+        LocalMeshlets.clear();
+        LocalMeshletVertices.clear();
+        LocalMeshletTriangles.clear();
 
-        if (m_indices.empty() || m_vertices.empty())
+        if (LocalIndices.empty() || LocalVertices.empty())
         {
             return;
         }
 
-        size_t meshletBound = meshopt_buildMeshletsBound(m_indices.size(), MeshletMaxVertices, MeshletMaxTriangles);
+        size_t meshletBound = meshopt_buildMeshletsBound(LocalIndices.size(), MeshletMaxVertices, MeshletMaxTriangles);
 
         std::vector<meshopt_Meshlet> meshoptMeshlets(meshletBound);
         std::vector<unsigned int> meshletVertices(meshletBound * MeshletMaxVertices);
@@ -129,19 +272,19 @@ namespace ToyEngine
             meshoptMeshlets.data(),
             meshletVertices.data(),
             meshletTriangles.data(),
-            m_indices.data(),
-            m_indices.size(),
-            &m_vertices[0].m_vx,
-            m_vertices.size(),
+            LocalIndices.data(),
+            LocalIndices.size(),
+            &LocalVertices[0].m_vx,
+            LocalVertices.size(),
             sizeof(Vertex),
             MeshletMaxVertices,
             MeshletMaxTriangles,
             0.0f
         );
 
-        m_meshlets.reserve(meshletCount);
-        m_meshletVertices.reserve(meshletCount * MeshletMaxVertices);
-        m_meshletTriangles.reserve(meshletCount * MeshletMaxTriangles * 3);
+        LocalMeshlets.reserve(meshletCount);
+        LocalMeshletVertices.reserve(meshletCount * MeshletMaxVertices);
+        LocalMeshletTriangles.reserve(meshletCount * MeshletMaxTriangles * 3);
 
         for (size_t i = 0; i < meshletCount; ++i)
         {
@@ -152,8 +295,8 @@ namespace ToyEngine
             meshopt_optimizeMeshlet(sourceVertices, sourceTriangles, source.triangle_count, source.vertex_count);
 
             Meshlet meshlet{};
-            meshlet.m_vertexOffset = static_cast<uint32_t>(m_meshletVertices.size());
-            meshlet.m_triangleOffset = static_cast<uint32_t>(m_meshletTriangles.size());
+            meshlet.m_vertexOffset = static_cast<uint32_t>(LocalMeshletVertices.size());
+            meshlet.m_triangleOffset = static_cast<uint32_t>(LocalMeshletTriangles.size());
             meshlet.m_vertexCount = source.vertex_count;
             meshlet.m_triangleCount = source.triangle_count;
 
@@ -161,8 +304,8 @@ namespace ToyEngine
                 sourceVertices,
                 sourceTriangles,
                 source.triangle_count,
-                &m_vertices[0].m_vx,
-                m_vertices.size(),
+                &LocalVertices[0].m_vx,
+                LocalVertices.size(),
                 sizeof(Vertex)
             );
 
@@ -172,18 +315,38 @@ namespace ToyEngine
             meshlet.m_coneCutoff = bounds.cone_cutoff;
             memcpy(meshlet.m_coneAxis, bounds.cone_axis, sizeof(meshlet.m_coneAxis));
 
-            m_meshlets.push_back(meshlet);
+            LocalMeshlets.push_back(meshlet);
 
             for (uint32_t vertexIndex = 0; vertexIndex < source.vertex_count; ++vertexIndex)
             {
-                m_meshletVertices.push_back(sourceVertices[vertexIndex]);
+                LocalMeshletVertices.push_back(sourceVertices[vertexIndex]);
             }
 
             for (uint32_t triangleIndex = 0; triangleIndex < source.triangle_count * 3; ++triangleIndex)
             {
-                m_meshletTriangles.push_back(sourceTriangles[triangleIndex]);
+                LocalMeshletTriangles.push_back(sourceTriangles[triangleIndex]);
             }
         }
     }
 
+    void MeshSystem::update(ResourceManager& resourceManager)
+    {
+        const bool RequiresUpdate = CurrentMeshRegistry.VertexOffset != RequestedMeshRegistry.VertexOffset;
+        if (Registry.size() != uploadedRegistryCount)
+        {
+            if (!Registry.empty())
+            {
+                Buffer* registryBuffer = resourceManager.getBuffer(meshRegistryHandle);
+                registryBuffer->copyDataToBuffer(Registry.data(), static_cast<uint32_t>(Registry.size() * sizeof(MeshRegistry)));
+            }
+            uploadedRegistryCount = static_cast<uint32_t>(Registry.size());
+        }
+        if (RequiresUpdate)
+        {
+            UpdateBuffers(resourceManager);
+            
+            LastUpdated = Registry.size();
+            CurrentMeshRegistry = RequestedMeshRegistry;
+        }
+    }
 }

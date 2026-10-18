@@ -34,17 +34,17 @@ FORCEINLINE uint32_t divideAndRoundUp(uint32_t numerator, uint32_t denominator)
 // This one needs to map to Engine\Shaders\common.glsl layout(push_constant) uniform Constants
 struct DefaultPipelineLayout
 {
-	VkDeviceAddress VertexDataPtr;
-	VkDeviceAddress CameraDataPtr;
-	VkDeviceAddress MeshletDataPtr;
-	VkDeviceAddress MeshletVertexDataPtr;
-	VkDeviceAddress MeshletTriangleDataPtr;
-	VkDeviceAddress TransformDataPtr;
-	uint32_t textureIndex;
-	uint32_t samplerIndex;
-	uint32_t meshletCount;
-	uint32_t TransformIndex;
+    VkDeviceAddress VertexDataPtr;
+    VkDeviceAddress CameraDataPtr;
+    VkDeviceAddress MeshletDataPtr;
+    VkDeviceAddress MeshletVertexDataPtr;
+    VkDeviceAddress MeshletTriangleDataPtr;
+    VkDeviceAddress TransformDataPtr;
+    VkDeviceAddress SuppliesIndirectionDataPtr;
+    VkDeviceAddress MeshRegistryDataPtr;
+    uint32_t InstanceID;
 };
+static_assert(sizeof(DefaultPipelineLayout) == 72);
 
 struct EditorPipelineLayout
 {
@@ -64,12 +64,18 @@ struct Transform
 	glm::mat4x4 modelMatrix = glm::mat4(1);
 };
 
+struct TransformID
+{
+    uint32_t transformId = 0;
+};
+
 struct GPUTransform
 {
-	glm::mat4x3 modelMatrix = glm::mat4(1);
+	glm::mat4x3 modelMatrix = glm::mat4x3(1.0f);
 };
 
 
+constexpr uint32_t MaxTransformsPerScene = 1 << 18;
 constexpr uint32_t MaxSupportedTexturess = 8;
 struct TextureCollection
 {
@@ -81,10 +87,15 @@ struct TextureCollection
 // when rendering could iterate over Mesh+Material combo, and query transform idx?
 struct Material
 {
-	// Should this hold the textures?
-	// can have some settings to auto 
-	// set in the pipeline.
-	// stuff like backface culling, two-sided, 
-	// depth bias, etc...
-	TextureCollection textureCollection;
+    TextureCollection textureCollection;
+    uint32_t SamplerIndex = 0;
 };
+static_assert(sizeof(Material) == 52);
+
+struct SuppliesIndirection
+{
+    Material MaterialData;
+    uint32_t TransformIdx;
+    uint32_t MeshID;
+};
+static_assert(sizeof(SuppliesIndirection) == 60);

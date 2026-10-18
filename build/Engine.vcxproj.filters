@@ -11,6 +11,9 @@
     <Filter Include="Source\Common">
       <UniqueIdentifier>{BBC9CAB2-278A-46E9-F0C4-8F665C448BC5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{EFAC8DF2-5B8C-0C8E-64A4-9764D00273EF}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Extern">
       <UniqueIdentifier>{5BCD8FB1-476F-BA87-302A-CEDB1C6B41D8}</UniqueIdentifier>
     </Filter>
@@ -31,6 +34,27 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\Engine\Shaders\common.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\Engine\Shaders\mesh.frag.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\Engine\Shaders\mesh.mesh.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\Engine\Shaders\mesh.task.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\Engine\Shaders\mesh.vert.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\Engine\Shaders\compile_all_shaders.bat">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\Engine\Shaders\interactive_compile_all_shaders.bat">
+      <Filter>Shaders</Filter>
+    </None>
     <None Include="..\extern\glm\glm\detail\func_common.inl">
       <Filter>Extern\glm</Filter>
     </None>
@@ -453,9 +477,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Engine\src\Actor.h">
-      <Filter>Source\src</Filter>
-    </ClInclude>
     <ClInclude Include="..\Engine\src\Camera.h">
       <Filter>Source\src</Filter>
     </ClInclude>
@@ -483,7 +504,13 @@
     <ClInclude Include="..\Engine\src\ResourceManager.h">
       <Filter>Source\src</Filter>
     </ClInclude>
-    <ClInclude Include="..\Engine\src\Scene.h">
+    <ClInclude Include="..\Engine\src\Supplier.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Engine\src\TransformSystem.h">
+      <Filter>Source\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Engine\src\World.h">
       <Filter>Source\src</Filter>
     </ClInclude>
     <ClInclude Include="..\Engine\Common\Common.h">
@@ -1394,7 +1421,10 @@
     <ClCompile Include="..\Engine\src\ResourceManager.cpp">
       <Filter>Source\src</Filter>
     </ClCompile>
-    <ClCompile Include="..\Engine\src\Scene.cpp">
+    <ClCompile Include="..\Engine\src\TransformSystem.cpp">
+      <Filter>Source\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Engine\src\World.cpp">
       <Filter>Source\src</Filter>
     </ClCompile>
     <ClCompile Include="..\extern\volk\volk.c">

@@ -51,6 +51,9 @@ project "Engine"
         "Engine/src/*.cpp",
         "Engine/src/*.h",
         "Engine/Common/**.h", -- Add Common directory files
+        -- Shaders
+        "Engine/Shaders/**.glsl",
+        "Engine/Shaders/**.bat",
         "extern/volk/volk.c",
         "extern/volk/volk.h",
         "extern/meshoptimizer/src/**.cpp",
@@ -89,6 +92,7 @@ project "Engine"
     }
 
     vpaths {
+        ["Shaders"] = { "Engine/Shaders/**" },
         ["Source/*"] = { "Engine/**" },
         ["Extern/volk"] = { "extern/volk/**" },
         ["Extern/meshoptimizer"] = { "extern/meshoptimizer/**" },

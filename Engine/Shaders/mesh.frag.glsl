@@ -16,10 +16,11 @@ layout(set = 0, binding = 1) uniform sampler globalSamplers[];
 layout(location = 0) out vec4 outColor;
 void main()
 {
+    SuppliesIndirectionData supply = SuppliesIndirectionDataPtr(push.SuppliesIndirectionDataAddress).entries[push.InstanceID];
     vec4 texColor = texture(
         sampler2D(
-            globalTextures[nonuniformEXT(push.textureIndex)], 
-            globalSamplers[nonuniformEXT(push.samplerIndex)]
+            globalTextures[nonuniformEXT(supply.materialData.textureCollection.textures[0])], 
+            globalSamplers[nonuniformEXT(supply.materialData.samplerIndex)]
         ), 
         inUV
     );

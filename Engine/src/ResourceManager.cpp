@@ -112,6 +112,45 @@ namespace ToyEngine
         return {index, slot.generation};
     }
 
+    // wrote too many times one shoot command buffer, need a better way to handle this
+    void ResourceManager::copyToBufferRegion(BufferHandle src, BufferHandle dst, uint32_t size,uint32_t offsetSrc, uint32_t offsetDst)
+    {
+        Buffer* srcBuffer = getBuffer(src);
+        Buffer* dstBuffer = getBuffer(dst);
+        
+        assert(srcBuffer != nullptr);
+        assert(dstBuffer != nullptr);
+        
+        VkCommandBufferAllocateInfo cbAllocInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        cbAllocInfo.commandPool = m_ctx->m_commandPool;
+        cbAllocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer cmd;
+        vkAllocateCommandBuffers(m_ctx->m_device, &cbAllocInfo, &cmd);
+
+        VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(cmd, &beginInfo);
+
+        VkBufferCopy copyRegion{};
+        copyRegion.size = size;
+        copyRegion.dstOffset = offsetDst;
+        copyRegion.srcOffset = offsetSrc;
+        vkCmdCopyBuffer(cmd, srcBuffer->m_buffer, dstBuffer->m_buffer, 1, &copyRegion);
+
+        vkEndCommandBuffer(cmd);
+
+        VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmd;
+
+        vkQueueSubmit(m_ctx->m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(m_ctx->m_graphicsQueue);
+
+        vkFreeCommandBuffers(m_ctx->m_device, m_ctx->m_commandPool, 1, &cmd);
+    }
+
     Buffer* ResourceManager::getBuffer(BufferHandle handle)
     {
         if (!handle.isValid() || handle.index >= m_buffers.size())

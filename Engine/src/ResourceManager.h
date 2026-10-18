@@ -60,6 +60,8 @@ namespace ToyEngine
         void cleanup();
 
         BufferHandle createBuffer(uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const void* initialData = nullptr);
+        void copyToBufferRegion(BufferHandle src, BufferHandle dst, uint32_t size = VK_WHOLE_SIZE,uint32_t offsetSrc = 0, uint32_t offsetDst = 0);
+        
         Buffer* getBuffer(BufferHandle handle);
         const Buffer* getBuffer(BufferHandle handle) const;
         void destroyBuffer(BufferHandle handle);

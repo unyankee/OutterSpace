@@ -22,29 +22,62 @@ struct CameraData
     float padding;
 };
 
+struct TextureCollectionData
+{
+    uint textures[8];
+    uint textureCount;
+    uint padding[3];
+};
+
+struct MaterialData
+{
+    TextureCollectionData textureCollection;
+    uint samplerIndex;
+};
+
+struct SuppliesIndirectionData
+{
+    MaterialData materialData;
+    uint transformIdx;
+    uint meshID;
+};
+struct MeshRegistryData
+{
+    uint meshletCount;
+    uint vertexOffset;
+    uint meshletOffset;
+    uint meshletVertexOffset;
+    uint meshletTriangleOffset;
+};
+
 struct TransformData
 {
-    vec4 m_position;
-    vec4 m_rotation;
-    vec4 m_scale;
-    mat4x4 modelMatrix;
+    mat4x3 modelMatrix;
 };
+
+mat4 expandTransform(TransformData transform)
+{
+    return mat4(
+        vec4(transform.modelMatrix[0], 0.0),
+        vec4(transform.modelMatrix[1], 0.0),
+        vec4(transform.modelMatrix[2], 0.0),
+        vec4(transform.modelMatrix[3], 1.0));
+}
 
 
 // I think might moved this one out of common?
 // might be somethig added at the top of the shaders that needs it?
-layout(push_constant) uniform Constants 
+layout(push_constant) uniform Constants
 {
-    uint64_t vertexBufferAddress;           // 8   @ 0
-    uint64_t cameraBufferAddress;           // 8   @ 8
-    uint64_t meshletBufferAddress;          // 8   @ 16
-    uint64_t meshletVertexBufferAddress;    // 8   @ 24
-    uint64_t meshletTriangleBufferAddress;  // 8   @ 32
-    uint64_t TransformDataAddress;          // 8   @ 40
-    uint     textureIndex;                  // 4   @ 44
-    uint     samplerIndex;                  // 4   @ 48
-    uint     meshletCount;                  // 4   @ 52
-    uint     TransformIndex;                // 4   @ 56
+    uint64_t vertexBufferAddress;
+    uint64_t cameraBufferAddress;
+    uint64_t meshletBufferAddress;
+    uint64_t meshletVertexBufferAddress;
+    uint64_t meshletTriangleBufferAddress;
+    uint64_t TransformDataAddress;
+    uint64_t SuppliesIndirectionDataAddress;
+    uint64_t MeshRegistryDataAddress;
+    uint InstanceID;
 } push; // 128 max
 
 layout(buffer_reference, std430) readonly buffer CameraBufferPtr
@@ -57,7 +90,15 @@ layout(buffer_reference, std430) readonly buffer MeshletBufferPtr
     Meshlet meshlets[];
 };
 
-layout(buffer_reference, std430) readonly buffer TransformDataPtr
+layout(buffer_reference, scalar) readonly buffer SuppliesIndirectionDataPtr
+{
+    SuppliesIndirectionData entries[];
+};
+layout(buffer_reference, scalar) readonly buffer MeshRegistryDataPtr
+{
+    MeshRegistryData entries[];
+};
+layout(buffer_reference, scalar) readonly buffer TransformDataPtr
 {
     TransformData transforms[];
 };

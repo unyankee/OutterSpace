@@ -1,7 +1,10 @@
 #pragma once
 
 #include <vector>
+#include <deque>
 #include <cstdint>
+
+#include "ResourceManager.h"
 
 namespace ToyEngine
 {
@@ -32,29 +35,69 @@ namespace ToyEngine
         float m_padding = 0.0f;
     };
     
+    
     struct Mesh
     {
+        struct MeshData
+        {
+            uint32_t VertexCount = 0;
+            uint32_t MeshletsCount = 0;
+            uint32_t MeshleVertexIndexCount = 0;
+            uint32_t MeshletTrianglesCount = 0;
+        };
+        uint32_t Id;
+        MeshData Data;
+    };
+    
+    
+    struct MeshSystem
+    {
+        struct MeshRegistry
+        {
+            uint32_t MeshletCount = 0;
+            uint32_t VertexOffset = 0;
+            uint32_t MeshletOffset = 0;
+            uint32_t MeshletVertexOffset = 0;
+            uint32_t MeshletTriangleOffset = 0;
+        };
+        static_assert(sizeof(MeshRegistry) == 20);
+        
+        void Init(ResourceManager& resourceManager);
+        void UpdateBuffers(ResourceManager& resourceManager);
+        Mesh* registerMesh(const char* path, ResourceManager& resourceManager);
+
+        bool loadFromObj(const char* path, std::vector<Vertex>& LocalVertices, std::vector<uint32_t>& LocalIndices,
+                         std::vector<Meshlet>& LocalMeshlets,
+                         std::vector<uint32_t>& LocalMeshletVertices,
+                         std::vector<uint32_t>& LocalMeshletTriangles);
+        
+        void buildMeshlets(std::vector<Vertex>& LocalVertices, std::vector<uint32_t>& LocalIndices,
+                         std::vector<Meshlet>& LocalMeshlets,
+                         std::vector<uint32_t>& LocalMeshletVertices,
+                         std::vector<uint32_t>& LocalMeshletTriangles);
+        
+        void update(ResourceManager& resourceManager);
+        
+        uint32_t LastUpdated = 0;
+        MeshRegistry RequestedMeshRegistry;
+        std::vector<MeshRegistry> Registry;
+        std::deque<Mesh> Meshes;
+        
+        MeshRegistry CurrentMeshRegistry;
+        
+        // CPU side
         std::vector<Vertex> m_vertices;
         std::vector<uint32_t> m_indices;
         std::vector<Meshlet> m_meshlets;
         std::vector<uint32_t> m_meshletVertices;
         std::vector<uint32_t> m_meshletTriangles;
-
-        bool loadFromObj(const char* path);
-
-    private:
-        void buildMeshlets();
+        // GPU side
+        BufferHandle vbHandle;
+        BufferHandle meshletHandle;
+        BufferHandle meshletVertexHandle;
+        BufferHandle meshletTriangleHandle;
+        BufferHandle meshRegistryHandle;
+        uint32_t uploadedRegistryCount = 0;
     };
-
-    class MeshManager
-    {
-    public:
-        MeshManager();
-        ~MeshManager();
-
-
-
-        std::vector<Mesh> Meshes;
-    };
-
+    
 }

@@ -17,6 +17,7 @@ namespace ToyEngine
         uint32_t m_graphicsFamilyIndex = 0;
 
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+        
     };
 
     class ResourceManager;

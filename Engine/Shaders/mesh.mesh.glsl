@@ -23,7 +23,7 @@ layout(buffer_reference, std430) readonly buffer VertexBufferPtr
 
 layout(buffer_reference, std430) readonly buffer MeshletVertexBufferPtr
 {
-    uint vertexIndices[];
+    uint VertexIndex[];
 };
 
 layout(buffer_reference, std430) readonly buffer MeshletTriangleBufferPtr
@@ -63,11 +63,14 @@ vec3 randomColor(uint seed)
 
 void main()
 {
-    const uint TransformIndex = push.TransformIndex;
-    TransformData transform = TransformDataPtr(push.TransformDataAddress).transforms[TransformIndex];
+    SuppliesIndirectionData supply = SuppliesIndirectionDataPtr(push.SuppliesIndirectionDataAddress).entries[push.InstanceID];
+    MeshRegistryData mesh = MeshRegistryDataPtr(push.MeshRegistryDataAddress).entries[supply.meshID];
+    TransformData transform = TransformDataPtr(push.TransformDataAddress).transforms[supply.transformIdx];
+    mat4 modelMatrix = expandTransform(transform);
     
     uint meshletIndex = payload.meshletIndices[gl_WorkGroupID.x];
-    Meshlet meshlet = MeshletBufferPtr(push.meshletBufferAddress).meshlets[meshletIndex];
+    Meshlet meshlet = MeshletBufferPtr(push.meshletBufferAddress).meshlets[mesh.meshletOffset + meshletIndex];
+    
     SetMeshOutputsEXT(meshlet.vertexCount, meshlet.triangleCount);
 
     uint localIndex = gl_LocalInvocationIndex;
@@ -75,11 +78,11 @@ void main()
 
     for (uint i = localIndex; i < meshlet.vertexCount; i += gl_WorkGroupSize.x)
     {
-        uint vertexIndex = MeshletVertexBufferPtr(push.meshletVertexBufferAddress).vertexIndices[meshlet.vertexOffset + i];
-        Vertex vertex = VertexBufferPtr(push.vertexBufferAddress).vertices[vertexIndex];
+        uint vertexIndex = MeshletVertexBufferPtr(push.meshletVertexBufferAddress).VertexIndex[mesh.meshletVertexOffset + meshlet.vertexOffset + i];
+        Vertex vertex = VertexBufferPtr(push.vertexBufferAddress).vertices[mesh.vertexOffset + vertexIndex];
 
         vec3 position = vec3(vertex.vx, vertex.vy, vertex.vz);
-        gl_MeshVerticesEXT[i].gl_Position = cam.proj * cam.view* transform.modelMatrix * vec4(position, 1.0);
+        gl_MeshVerticesEXT[i].gl_Position = cam.proj * cam.view * modelMatrix * vec4(position, 1.0);
         
         outUV[i] = vec2(vertex.tu, vertex.tv);
         outNormal[i] = vec3(vertex.nx, vertex.ny, vertex.nz);
@@ -91,7 +94,7 @@ void main()
 
     for (uint i = localIndex; i < meshlet.triangleCount; i += gl_WorkGroupSize.x)
     {
-        uint triangleOffset = meshlet.triangleOffset + i * 3;
+        uint triangleOffset = mesh.meshletTriangleOffset + meshlet.triangleOffset + i * 3;
         gl_PrimitiveTriangleIndicesEXT[i] = uvec3(
             MeshletTriangleBufferPtr(push.meshletTriangleBufferAddress).triangleIndices[triangleOffset + 0],
             MeshletTriangleBufferPtr(push.meshletTriangleBufferAddress).triangleIndices[triangleOffset + 1],
