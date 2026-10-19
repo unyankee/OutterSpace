@@ -47,7 +47,7 @@ void main()
         vec3 worldAxis = normalize(mat3(modelMatrix) * meshlet.coneAxis.xyz);
         vec4 worldConeApexCutoff = vec4(worldApex, meshlet.coneApexCutoff.w);
 
-        vec3 CameraEyePos = CameraBufferPtr(push.cameraBufferAddress).camera.eyePos;
+        vec3 CameraEyePos = cameraBuffer.camera.eyePos;
         visible = !coneCull(worldConeApexCutoff, worldAxis, CameraEyePos);
     }
 

@@ -35,8 +35,6 @@ namespace ToyEngine
 
         std::vector<TextureHandle> inputTextures;
         std::vector<BufferHandle> inputBuffers;
-        std::vector<VkDescriptorSet> descriptorSets;
-
         std::function<void(VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)> execute;
     };
 

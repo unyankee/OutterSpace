@@ -23,6 +23,13 @@ namespace ToyEngine
         bool m_depthWrite = true;
         bool m_blending = false;
         bool m_useMeshShaders = false;
+        VkShaderStageFlags m_pushDataStages = 0;
+        VkShaderStageFlags m_cameraDataStages = 0;
+        uint32_t m_cameraHeapOffset = 0;
+        uint32_t m_bufferDescriptorStride = 0;
+        uint32_t m_imageHeapOffset = 0;
+        uint32_t m_imageDescriptorStride = 0;
+        uint32_t m_samplerDescriptorStride = 0;
         VkCompareOp m_depthCompareOp = VK_COMPARE_OP_GREATER; // Reverse depth by default
     };
 
@@ -33,8 +40,7 @@ namespace ToyEngine
         explicit Pipeline(const PipelineConfig& config) : m_config(config) {}
         ~Pipeline() = default;
 
-        void create(const GpuContext& ctx, VkDescriptorSetLayout descriptorLayout, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
-        void create(const GpuContext& ctx, std::vector<VkDescriptorSetLayout> descriptorLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
+        void create(const GpuContext& ctx);
         void destroy(const GpuContext& ctx);
 
         void bind(VkCommandBuffer cmd) const;
@@ -44,18 +50,11 @@ namespace ToyEngine
             return m_pipeline;
         }
 
-        VkPipelineLayout getLayout() const
-        {
-            return m_layout;
-        }
-
         static VkShaderModule loadShader(VkDevice device, const char* path);
 
-        VkShaderStageFlags getPipelineStageMask( )const;
     private:
         PipelineConfig m_config{};
         VkPipeline m_pipeline = VK_NULL_HANDLE;
-        VkPipelineLayout m_layout = VK_NULL_HANDLE;
     };
 
 }

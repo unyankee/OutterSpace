@@ -1,8 +1,10 @@
 #include <assert.h>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <stdexcept>
 
 #include <Volk/volk.h>
 
@@ -207,7 +209,7 @@ void EngineInstance::InitInstance()
 
     resourceManager.init(gpuContext);
     gpuContext.m_commandPool = resourceManager.createCommandPool(FamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-    pipeline_manager.init(Device);
+    pipeline_manager.init(gpuContext, resourceManager);
     meshSystem.Init(resourceManager);
     transformSystem.init(resourceManager);
 
@@ -220,6 +222,8 @@ void EngineInstance::InitInstance()
                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
+    pipeline_manager.SetCameraBuffer(*resourceManager.getBuffer(cameraBufferHandle), resourceManager);
+
     // TODO: not used yet, need to investigate how to process all the draw commands, then will investigate lighting
     SuppliesIndirectionHandle = resourceManager.createBuffer(sizeof(SuppliesIndirection) * MaxTransformsPerScene,
                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
@@ -231,23 +235,45 @@ void EngineInstance::InitInstance()
     GetSwapchainFormat();
     CreateSwapchain();
 
-    editorLayer.init(gpuContext, &resourceManager, window, surfaceFormat.format);
+    editorLayer.init(gpuContext, &resourceManager, &pipeline_manager, window, surfaceFormat.format);
 }
 
 void EngineInstance::SelectPhysicalDevice()
 {
-    uint32_t DeviceCandidate = 0;
+    bool foundDevice = false;
     for (uint32_t i = 0; i < PhysicalDevices.size(); i++)
     {
         VkPhysicalDeviceProperties Properties;
         vkGetPhysicalDeviceProperties(PhysicalDevices[i], &Properties);
-        if (Properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+
+        uint32_t extensionCount = 0;
+        vkEnumerateDeviceExtensionProperties(PhysicalDevices[i], nullptr, &extensionCount, nullptr);
+        std::vector<VkExtensionProperties> extensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(PhysicalDevices[i], nullptr, &extensionCount, extensions.data());
+        const bool hasDescriptorHeap = std::any_of(extensions.begin(), extensions.end(),
+            [](const VkExtensionProperties& extension)
+            {
+                return strcmp(extension.extensionName, VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME) == 0;
+            });
+
+        VkPhysicalDeviceDescriptorHeapFeaturesEXT heapFeatures{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT};
+        VkPhysicalDeviceFeatures2 features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        features.pNext = &heapFeatures;
+        vkGetPhysicalDeviceFeatures2(PhysicalDevices[i], &features);
+
+        if (Properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && hasDescriptorHeap &&
+            heapFeatures.descriptorHeap)
         {
-            DeviceCandidate = i;
+            PhysicalDevice = PhysicalDevices[i];
+            foundDevice = true;
             break;
         }
     }
-    PhysicalDevice = PhysicalDevices[DeviceCandidate];
+    if (!foundDevice)
+    {
+        throw std::runtime_error("No discrete GPU supports VK_EXT_descriptor_heap");
+    }
     vkGetPhysicalDeviceMemoryProperties(PhysicalDevice, &PhysicalMemoryProperties);
 }
 
@@ -262,7 +288,8 @@ void EngineInstance::CreateDevice()
     const char* Extensions[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_MESH_SHADER_EXTENSION_NAME,
-        VK_KHR_DEVICE_ADDRESS_COMMANDS_EXTENSION_NAME
+        VK_KHR_DEVICE_ADDRESS_COMMANDS_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME
     };
     VkDeviceCreateInfo DeviceCreateInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     DeviceCreateInfo.queueCreateInfoCount = 1;
@@ -279,6 +306,10 @@ void EngineInstance::CreateDevice()
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_ADDRESS_COMMANDS_FEATURES_KHR
     };
     addressCommandsFeatures.deviceAddressCommands = VK_TRUE;
+    VkPhysicalDeviceDescriptorHeapFeaturesEXT descriptorHeapFeatures{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT};
+    descriptorHeapFeatures.descriptorHeap = VK_TRUE;
+    addressCommandsFeatures.pNext = &descriptorHeapFeatures;
     features13.pNext = &addressCommandsFeatures;
 
     VkPhysicalDeviceVulkan12Features features12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
@@ -464,11 +495,11 @@ void EngineInstance::MainLoop()
     Mesh* testMesh2 = meshSystem.registerMesh("assets/models/suzanne.obj", resourceManager);
     
     TextureHandle TextureTest = resourceManager.loadTexture("assets/models/Dragon_Bump_Col2.jpg");
-    pipeline_manager.AddTextureToGlobalDescriptorSet(*resourceManager.getTexture(TextureTest));
+    pipeline_manager.AddTextureToDescriptorHeap(*resourceManager.getTexture(TextureTest), resourceManager);
 
     // hardcoding for testing
     Material mat{};
-    mat.textureCollection.Textures[0] = 0;
+    mat.textureCollection.Textures[0] = resourceManager.getTexture(TextureTest)->m_bindlessIndex;
     mat.textureCollection.TextureCount = 1;
     
     for(uint32_t i = 0; i < 1; ++i)
@@ -500,11 +531,14 @@ void EngineInstance::MainLoop()
     config.m_fragmentShader = MeshFs;
     config.m_colorFormat = surfaceFormat.format;
     config.m_useMeshShaders = true;
-    
-    VkPushConstantRange mainPushConstantRange{};
-    mainPushConstantRange.stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    mainPushConstantRange.offset = 0;
-    mainPushConstantRange.size = sizeof(DefaultPipelineLayout);
+    config.m_pushDataStages = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT |
+        VK_SHADER_STAGE_FRAGMENT_BIT;
+    config.m_cameraDataStages = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT;
+    config.m_cameraHeapOffset = resourceManager.getBuffer(cameraBufferHandle)->m_descriptorHeapLocation.m_offset;
+    config.m_bufferDescriptorStride = pipeline_manager.getBufferDescriptorStride();
+    config.m_imageHeapOffset = pipeline_manager.getImageHeapOffset();
+    config.m_imageDescriptorStride = pipeline_manager.getImageDescriptorStride();
+    config.m_samplerDescriptorStride = pipeline_manager.getSamplerDescriptorStride();
 
     // TODO:
     // NXT is finding a way to produce how many things to draw, multiple meshes and etc..
@@ -534,17 +568,11 @@ void EngineInstance::MainLoop()
     //      { MeshelementsCount / 32,                    Isntance 4 (supplyIndirection?)}  // Draw call 4: 
     //  };
     // 
-    // 
-    // 
-    // 
-    
-     
 
-    
     Pass mainPass;
     mainPass.name = "MainForwardPass";
-    mainPass.pipeline = resourceManager.createPipeline(config, pipeline_manager.getGlobalDescriptorSetLayout(), { mainPushConstantRange });
-    mainPass.execute = [MeshSystem = meshSystem, CameraBufferHandle = cameraBufferHandle, SuppliesIndirectionBufferHandle = SuppliesIndirectionHandle, TransformBufferHandle = transformSystem.getGpuBufferHandle()](
+    mainPass.pipeline = resourceManager.createPipeline(config);
+    mainPass.execute = [MeshSystem = meshSystem, SuppliesIndirectionBufferHandle = SuppliesIndirectionHandle, TransformBufferHandle = transformSystem.getGpuBufferHandle()](
         VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {
             // obviously not ideal, we could multidraw indirect if mesh is the same
@@ -558,7 +586,6 @@ void EngineInstance::MainLoop()
                 uint32_t meshletCount = mesh.Data.MeshletsCount;
 
                 Buffer* vertexBuffer = ctx.resourceManager.getBuffer(MeshSystem.vbHandle);
-                Buffer* cameraBuffer = ctx.resourceManager.getBuffer(CameraBufferHandle);
                 Buffer* meshlets = ctx.resourceManager.getBuffer(MeshSystem.meshletHandle);
                 Buffer* Transform = ctx.resourceManager.getBuffer(TransformBufferHandle);
                 Buffer* suppliesIndirectionBuffer = ctx.resourceManager.getBuffer(SuppliesIndirectionBufferHandle);
@@ -566,16 +593,17 @@ void EngineInstance::MainLoop()
                 Buffer* meshletTriangles = ctx.resourceManager.getBuffer(MeshSystem.meshletTriangleHandle);
                 //Texture* mainTexture = ctx.resourceManager.getTexture(TextureTest);
                 DefaultPipelineLayout push = {
-                    vertexBuffer->m_gpuAddress, cameraBuffer->m_gpuAddress,
+                    vertexBuffer->m_gpuAddress,
                     meshlets->m_gpuAddress, meshletVertices->m_gpuAddress,
                     meshletTriangles->m_gpuAddress, Transform->m_gpuAddress,
                     suppliesIndirectionBuffer->m_gpuAddress,
                     ctx.resourceManager.getBuffer(MeshSystem.meshRegistryHandle)->m_gpuAddress, instanceID
                 };
 
-                Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
-                vkCmdPushConstants(cmd, pipeline->getLayout(), pipeline->getPipelineStageMask(), 0,
-                                   sizeof(DefaultPipelineLayout), &push);
+                VkPushDataInfoEXT pushDataInfo{VK_STRUCTURE_TYPE_PUSH_DATA_INFO_EXT};
+                pushDataInfo.offset = 0;
+                pushDataInfo.data = {&push, sizeof(push)};
+                vkCmdPushDataEXT(cmd, &pushDataInfo);
 
                 // The idea is to get a list of drawcommands at this stage automatically?
                 // It should be an isolated chunk of gpu commands that can be
@@ -590,10 +618,10 @@ void EngineInstance::MainLoop()
                 ++instanceID;
             }
         };
+
     Pass editorPass;
     editorPass.name = "EditorPass";
     editorPass.pipeline = editorLayer.GetPipeline();
-    editorPass.descriptorSets = editorLayer.GetDescriptorSets();
     editorPass.execute = [&editorLayer = editorLayer, &swapchain = swapchain](
         VkCommandBuffer cmd, const Pass& pass, PassContext& ctx)
         {
@@ -769,7 +797,6 @@ void EngineInstance::MainLoop()
         frameBatch.passes.push_back(mainPass);
         frameBatch.passes.push_back(editorPass);
 
-        BufferHandle camBuffer = cameraBufferHandle;
         PassContext ctx = {world, resourceManager, pipeline_manager};
         passExecutor.execute(currentCommandBuffer, frameBatch, ctx);
 

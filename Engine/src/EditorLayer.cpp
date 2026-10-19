@@ -9,7 +9,8 @@
 namespace ToyEngine
 {
 
-    void EditorLayer::init(const GpuContext& ctx, ResourceManager* resourceManager, GLFWwindow* window, VkFormat colorFormat)
+    void EditorLayer::init(const GpuContext& ctx, ResourceManager* resourceManager,
+                           PipelineManager* pipelineManager, GLFWwindow* window, VkFormat colorFormat)
     {
         m_window = window;
         m_ctx = &ctx;
@@ -27,8 +28,8 @@ namespace ToyEngine
         // Setup Platform/Renderer backends
         ImGui_ImplGlfw_InitForVulkan(window, true);
 
-        createPipeline(ctx, colorFormat);
-        createFontAtlas(ctx);
+        createFontAtlas(ctx, *pipelineManager);
+        createPipeline(ctx, colorFormat, *pipelineManager);
 
         m_vertexBuffer = m_resourceManager->createBuffer(1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         m_indexBuffer = m_resourceManager->createBuffer(1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -87,19 +88,17 @@ namespace ToyEngine
 
         // Bind pipeline and descriptor sets
         Pipeline* pipeline = m_resourceManager->getPipeline(m_pipeline);
+        EditorPipelineLayout pc{};
+        pc.scale[0] = 2.0f / drawData->DisplaySize.x;
+        pc.scale[1] = 2.0f / drawData->DisplaySize.y;
+        pc.translate[0] = -1.0f - drawData->DisplayPos.x * pc.scale[0];
+        pc.translate[1] = -1.0f - drawData->DisplayPos.y * pc.scale[1];
+        pc.VertexDataPtr = vertexBuffer->m_gpuAddress;
+
         if (pipeline)
         {
             VkViewport viewport = {0, 0, (float)width, (float)height, 0, 1};
             vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-            EditorPipelineLayout pc;
-            pc.scale[0] = 2.0f / drawData->DisplaySize.x;
-            pc.scale[1] = 2.0f / drawData->DisplaySize.y;
-            pc.translate[0] = -1.0f - drawData->DisplayPos.x * pc.scale[0];
-            pc.translate[1] = -1.0f - drawData->DisplayPos.y * pc.scale[1];
-            pc.VertexDataPtr = vertexBuffer->m_gpuAddress;
-            
-            vkCmdPushConstants(cmd, pipeline->getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
         }
 
         VkDeviceSize offset = 0;
@@ -129,6 +128,12 @@ namespace ToyEngine
                     scissor.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
 
                     vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+                    pc.TextureIndex = static_cast<uint32_t>(pcmd->GetTexID() - 1);
+                    VkPushDataInfoEXT pushDataInfo{VK_STRUCTURE_TYPE_PUSH_DATA_INFO_EXT};
+                    pushDataInfo.offset = 0;
+                    pushDataInfo.data = {&pc, sizeof(pc)};
+                    vkCmdPushDataEXT(cmd, &pushDataInfo);
                     
                     vkCmdDrawIndexed(cmd, pcmd->ElemCount, 1, pcmd->IdxOffset + idxOffset, pcmd->VtxOffset + vtxOffset, 0);
                 }
@@ -147,57 +152,13 @@ namespace ToyEngine
         m_resourceManager->destroyBuffer(m_vertexBuffer);
         m_resourceManager->destroyBuffer(m_indexBuffer);
 
-        if (m_sampler)
-        {
-            vkDestroySampler(m_ctx->m_device, m_sampler, nullptr);
-        }
-
-        if (m_descriptorPool)
-        {
-            vkDestroyDescriptorPool(m_ctx->m_device, m_descriptorPool, nullptr);
-        }
-
-        if (m_textureLayout)
-        {
-            vkDestroyDescriptorSetLayout(m_ctx->m_device, m_textureLayout, nullptr);
-        }
-
-        if (m_samplerLayout)
-        {
-            vkDestroyDescriptorSetLayout(m_ctx->m_device, m_samplerLayout, nullptr);
-        }
-
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
     }
 
-    void EditorLayer::createPipeline(const GpuContext& ctx, VkFormat colorFormat)
+    void EditorLayer::createPipeline(const GpuContext& ctx, VkFormat colorFormat,
+                                     PipelineManager& pipelineManager)
     {
-        // Define descriptor set layouts
-        VkDescriptorSetLayoutBinding textureBinding{};
-        textureBinding.binding = 0;
-        textureBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        textureBinding.descriptorCount = 1;
-        textureBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        VkDescriptorSetLayoutCreateInfo textureLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        textureLayoutInfo.bindingCount = 1;
-        textureLayoutInfo.pBindings = &textureBinding;
-
-        VK_CHECK(vkCreateDescriptorSetLayout(ctx.m_device, &textureLayoutInfo, nullptr, &m_textureLayout));
-
-        VkDescriptorSetLayoutBinding samplerBinding{};
-        samplerBinding.binding = 0;
-        samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-        samplerBinding.descriptorCount = 1;
-        samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        VkDescriptorSetLayoutCreateInfo samplerLayoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        samplerLayoutInfo.bindingCount = 1;
-        samplerLayoutInfo.pBindings = &samplerBinding;
-
-        VK_CHECK(vkCreateDescriptorSetLayout(ctx.m_device, &samplerLayoutInfo, nullptr, &m_samplerLayout));
-
         PipelineConfig config{};
         // We expect shaders to be pre-compiled to .spv
         config.m_vertexShader = Pipeline::loadShader(ctx.m_device, "../extern/imgui/glsl_shader.vert.spv");
@@ -208,15 +169,15 @@ namespace ToyEngine
         config.m_blending = true;
         config.m_cullMode = VK_CULL_MODE_NONE;
 
-        VkPushConstantRange editorPushConstantRange{};
-        editorPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-        editorPushConstantRange.offset = 0;
-        editorPushConstantRange.size = sizeof(EditorPipelineLayout);
+        config.m_pushDataStages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        config.m_imageHeapOffset = pipelineManager.getImageHeapOffset();
+        config.m_imageDescriptorStride = pipelineManager.getImageDescriptorStride();
+        config.m_samplerDescriptorStride = pipelineManager.getSamplerDescriptorStride();
 
-        m_pipeline = m_resourceManager->createPipeline(config, {m_textureLayout, m_samplerLayout}, {editorPushConstantRange});
+        m_pipeline = m_resourceManager->createPipeline(config);
     }
 
-    void EditorLayer::createFontAtlas(const GpuContext& ctx)
+    void EditorLayer::createFontAtlas(const GpuContext& ctx, PipelineManager& pipelineManager)
     {
         ImGuiIO& io = ImGui::GetIO();
         unsigned char* pixels;
@@ -227,63 +188,8 @@ namespace ToyEngine
         Texture* fontTexture = m_resourceManager->getTexture(m_fontTexture);
         fontTexture->uploadData(ctx, pixels, width * height * 4);
 
-        // Create sampler
-        VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-        samplerInfo.magFilter = VK_FILTER_LINEAR;
-        samplerInfo.minFilter = VK_FILTER_LINEAR;
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-        VK_CHECK(vkCreateSampler(ctx.m_device, &samplerInfo, nullptr, &m_sampler));
-
-        // Descriptor pool and sets
-        VkDescriptorPoolSize poolSizes[] = {
-            {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1},
-            {VK_DESCRIPTOR_TYPE_SAMPLER, 1}
-        };
-
-        VkDescriptorPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        poolInfo.maxSets = 2;
-        poolInfo.poolSizeCount = 2;
-        poolInfo.pPoolSizes = poolSizes;
-
-        VK_CHECK(vkCreateDescriptorPool(ctx.m_device, &poolInfo, nullptr, &m_descriptorPool));
-
-        VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-        allocInfo.descriptorPool = m_descriptorPool;
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts = &m_textureLayout;
-
-        VK_CHECK(vkAllocateDescriptorSets(ctx.m_device, &allocInfo, &m_fontDescriptorSet));
-
-        allocInfo.pSetLayouts = &m_samplerLayout;
-
-        VK_CHECK(vkAllocateDescriptorSets(ctx.m_device, &allocInfo, &m_samplerDescriptorSet));
-
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = fontTexture->m_view;
-
-        VkWriteDescriptorSet writes[2] = {};
-        writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = m_fontDescriptorSet;
-        writes[0].dstBinding = 0;
-        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        writes[0].descriptorCount = 1;
-        writes[0].pImageInfo = &imageInfo;
-
-        VkDescriptorImageInfo samplerInfoWrite{};
-        samplerInfoWrite.sampler = m_sampler;
-
-        writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[1].dstSet = m_samplerDescriptorSet;
-        writes[1].dstBinding = 0;
-        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-        writes[1].descriptorCount = 1;
-        writes[1].pImageInfo = &samplerInfoWrite;
-
-        vkUpdateDescriptorSets(ctx.m_device, 2, writes, 0, nullptr);
+        pipelineManager.AddTextureToDescriptorHeap(*fontTexture, *m_resourceManager);
+        io.Fonts->SetTexID(static_cast<ImTextureID>(fontTexture->m_bindlessIndex + 1));
     }
 
 }

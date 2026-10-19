@@ -35,7 +35,6 @@ FORCEINLINE uint32_t divideAndRoundUp(uint32_t numerator, uint32_t denominator)
 struct DefaultPipelineLayout
 {
     VkDeviceAddress VertexDataPtr;
-    VkDeviceAddress CameraDataPtr;
     VkDeviceAddress MeshletDataPtr;
     VkDeviceAddress MeshletVertexDataPtr;
     VkDeviceAddress MeshletTriangleDataPtr;
@@ -44,14 +43,16 @@ struct DefaultPipelineLayout
     VkDeviceAddress MeshRegistryDataPtr;
     uint32_t InstanceID;
 };
-static_assert(sizeof(DefaultPipelineLayout) == 72);
+static_assert(sizeof(DefaultPipelineLayout) == 64);
 
 struct EditorPipelineLayout
 {
 	float scale[2];
 	float translate[2];
 	VkDeviceAddress VertexDataPtr;
+	uint32_t TextureIndex;
 };
+static_assert(sizeof(EditorPipelineLayout) == 32);
 
 // This is incorrectly used as well, GPU should not use this one, there should be a lightweight version of just 4x3 mat
 // cutting corners for now

@@ -28,7 +28,7 @@ void main()
     vec3 normal = vec3(vertex.nx, vertex.ny, vertex.nz);
     vec2 texCoord = vec2(vertex.tu, vertex.tv);
 
-    CameraData cam = CameraBufferPtr(push.cameraBufferAddress).camera;
+    CameraData cam = cameraBuffer.camera;
 
     gl_Position = cam.proj * cam.view * vec4(position, 1.0);
 

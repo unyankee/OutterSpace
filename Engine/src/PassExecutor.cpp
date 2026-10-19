@@ -52,25 +52,14 @@ namespace ToyEngine
 
         vkCmdBeginRendering(cmd, &renderingInfo);
 
+        ctx.pipelineManager.bindDescriptorHeaps(cmd, ctx.resourceManager);
+
         for (const auto& pass : batch.passes)
         {
             if (pass.pipeline.isValid())
             {
                 Pipeline* pipeline = ctx.resourceManager.getPipeline(pass.pipeline);
                 pipeline->bind(cmd);
-
-                if (!pass.descriptorSets.empty())
-                {
-                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0,
-                                            (uint32_t)pass.descriptorSets.size(), pass.descriptorSets.data(),
-                                            0, nullptr);
-                }
-                else
-                {
-                    VkDescriptorSet globalSet = ctx.pipelineManager.getGlobalDescriptorSet();
-                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getLayout(), 0, 1, &globalSet,
-                                            0, nullptr);
-                }
             }
 
             if (pass.execute)

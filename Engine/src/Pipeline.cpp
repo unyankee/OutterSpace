@@ -3,26 +3,14 @@
 #include "Common/Common.h"
 
 #include <fstream>
+#include <array>
 #include <vector>
 
 namespace ToyEngine
 {
 
-    void Pipeline::create(const GpuContext& ctx, VkDescriptorSetLayout descriptorLayout, const std::vector<VkPushConstantRange>& pushConstantRanges)
+    void Pipeline::create(const GpuContext& ctx)
     {
-        create(ctx, std::vector<VkDescriptorSetLayout>{descriptorLayout}, pushConstantRanges);
-    }
-
-    void Pipeline::create(const GpuContext& ctx, std::vector<VkDescriptorSetLayout> descriptorLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges)
-    {
-        VkPipelineLayoutCreateInfo layoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-        layoutInfo.setLayoutCount = (uint32_t)descriptorLayouts.size();
-        layoutInfo.pSetLayouts = descriptorLayouts.data();
-        layoutInfo.pushConstantRangeCount = (uint32_t)pushConstantRanges.size();
-        layoutInfo.pPushConstantRanges = pushConstantRanges.empty() ? nullptr : pushConstantRanges.data();
-
-        VK_CHECK(vkCreatePipelineLayout(ctx.m_device, &layoutInfo, nullptr, &m_layout));
-
         VkPipelineShaderStageCreateInfo shaderStages[3] = {};
         uint32_t shaderStageCount = 0;
 
@@ -54,6 +42,69 @@ namespace ToyEngine
         shaderStages[shaderStageCount].module = m_config.m_fragmentShader;
         shaderStages[shaderStageCount].pName = "main";
         ++shaderStageCount;
+
+        // This layout declaration should be defined from the shader
+        VkDescriptorSetAndBindingMappingEXT globalDataMapping{
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT};
+        globalDataMapping.descriptorSet = 1;
+        globalDataMapping.firstBinding = 0;
+        globalDataMapping.bindingCount = 1;
+        globalDataMapping.resourceMask = VK_SPIRV_RESOURCE_TYPE_UNIFORM_BUFFER_BIT_EXT;
+        globalDataMapping.source = VK_DESCRIPTOR_MAPPING_SOURCE_PUSH_DATA_EXT;
+        globalDataMapping.sourceData.pushDataOffset = 0;
+
+        VkDescriptorSetAndBindingMappingEXT cameraMapping{
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT};
+        cameraMapping.descriptorSet = 0;
+        cameraMapping.firstBinding = 0;
+        cameraMapping.bindingCount = 1;
+        cameraMapping.resourceMask = VK_SPIRV_RESOURCE_TYPE_UNIFORM_BUFFER_BIT_EXT;
+        cameraMapping.source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT;
+        cameraMapping.sourceData.constantOffset.heapOffset = m_config.m_cameraHeapOffset;
+        cameraMapping.sourceData.constantOffset.heapArrayStride = m_config.m_bufferDescriptorStride;
+
+        VkDescriptorSetAndBindingMappingEXT imageMapping{
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT};
+        imageMapping.descriptorSet = 2;
+        imageMapping.firstBinding = 0;
+        imageMapping.bindingCount = 1;
+        imageMapping.resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLED_IMAGE_BIT_EXT;
+        imageMapping.source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT;
+        imageMapping.sourceData.constantOffset.heapOffset = m_config.m_imageHeapOffset;
+        imageMapping.sourceData.constantOffset.heapArrayStride = m_config.m_imageDescriptorStride;
+
+        VkDescriptorSetAndBindingMappingEXT samplerMapping{
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT};
+        samplerMapping.descriptorSet = 2;
+        samplerMapping.firstBinding = 1;
+        samplerMapping.bindingCount = 1;
+        samplerMapping.resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLER_BIT_EXT;
+        samplerMapping.source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT;
+        samplerMapping.sourceData.constantOffset.heapArrayStride = m_config.m_samplerDescriptorStride;
+
+        std::array<std::vector<VkDescriptorSetAndBindingMappingEXT>, 3> stageMappings;
+        std::array<VkShaderDescriptorSetAndBindingMappingInfoEXT, 3> stageMappingInfos{};
+        for (uint32_t i = 0; i < shaderStageCount; ++i)
+        {
+            auto& mappings = stageMappings[i];
+            if ((m_config.m_cameraDataStages & shaderStages[i].stage) != 0)
+            {
+                mappings.push_back(cameraMapping);
+            }
+            if ((m_config.m_pushDataStages & shaderStages[i].stage) != 0)
+            {
+                mappings.push_back(globalDataMapping);
+            }
+            if (shaderStages[i].stage == VK_SHADER_STAGE_FRAGMENT_BIT)
+            {
+                mappings.push_back(imageMapping);
+                mappings.push_back(samplerMapping);
+            }
+            stageMappingInfos[i].sType = VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT;
+            stageMappingInfos[i].mappingCount = static_cast<uint32_t>(mappings.size());
+            stageMappingInfos[i].pMappings = mappings.data();
+            shaderStages[i].pNext = &stageMappingInfos[i];
+        }
 
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
@@ -126,29 +177,21 @@ namespace ToyEngine
         pipelineInfo.pDepthStencilState = &depthStencil;
         pipelineInfo.pColorBlendState = &colorBlending;
         pipelineInfo.pDynamicState = &dynamicState;
-        pipelineInfo.layout = m_layout;
+        pipelineInfo.layout = VK_NULL_HANDLE;
         pipelineInfo.renderPass = VK_NULL_HANDLE; // Using dynamic rendering
 
         VkPipelineRenderingCreateInfo renderingInfo{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
         renderingInfo.colorAttachmentCount = 1;
         renderingInfo.pColorAttachmentFormats = &m_config.m_colorFormat;
         renderingInfo.depthAttachmentFormat = m_config.m_depthFormat;
-        pipelineInfo.pNext = &renderingInfo;
+        VkPipelineCreateFlags2CreateInfo flags2{VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO};
+        flags2.flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT;
+        flags2.pNext = &renderingInfo;
+        pipelineInfo.pNext = &flags2;
 
         VK_CHECK(vkCreateGraphicsPipelines(ctx.m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline));
     }
 
-    VkShaderStageFlags Pipeline::getPipelineStageMask( ) const
-    {
-        VkShaderStageFlags ShaderStageFlags = 0;
-        ShaderStageFlags |= (m_config.m_fragmentShader != VK_NULL_HANDLE) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0;
-        ShaderStageFlags |= (m_config.m_vertexShader != VK_NULL_HANDLE) ? VK_SHADER_STAGE_VERTEX_BIT : 0;
-        ShaderStageFlags |= (m_config.m_meshShader != VK_NULL_HANDLE) ? VK_SHADER_STAGE_MESH_BIT_EXT : 0;
-        ShaderStageFlags |= (m_config.m_taskShader != VK_NULL_HANDLE) ? VK_SHADER_STAGE_TASK_BIT_EXT : 0;
-        
-        return ShaderStageFlags;
-    };
-    
     void Pipeline::destroy(const GpuContext& ctx)
     {
         if (m_pipeline)
@@ -156,13 +199,7 @@ namespace ToyEngine
             vkDestroyPipeline(ctx.m_device, m_pipeline, nullptr);
         }
 
-        if (m_layout)
-        {
-            vkDestroyPipelineLayout(ctx.m_device, m_layout, nullptr);
-        }
-
         m_pipeline = VK_NULL_HANDLE;
-        m_layout = VK_NULL_HANDLE;
     }
 
     void Pipeline::bind(VkCommandBuffer cmd) const

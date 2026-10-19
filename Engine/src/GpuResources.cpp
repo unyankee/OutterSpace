@@ -169,6 +169,8 @@ namespace ToyEngine
 
         m_width = static_cast<uint32_t>(texWidth);
         m_height = static_cast<uint32_t>(texHeight);
+        m_format = VK_FORMAT_R8G8B8A8_SRGB;
+        m_aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 
         uint32_t imageSize = m_width * m_height * 4;
 
@@ -261,17 +263,8 @@ namespace ToyEngine
         vkFreeCommandBuffers(ctx.m_device, ctx.m_commandPool, 1, &cmd);
         staging.destroy(ctx);
 
-        VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-        viewInfo.image = m_image;
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-
-        VK_CHECK(vkCreateImageView(ctx.m_device, &viewInfo, nullptr, &m_view));
+        // Sampled asset textures get their image descriptors directly from VkImageViewCreateInfo.
+        // This avoids creating a VkImageView object for the renderer's descriptor-heap path.
     }
 
     void Texture::create(const GpuContext& ctx, uint32_t width, uint32_t height, VkFormat format,
@@ -279,6 +272,8 @@ namespace ToyEngine
     {
         m_width = width;
         m_height = height;
+        m_format = format;
+        m_aspect = aspect;
 
         VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -306,17 +301,6 @@ namespace ToyEngine
         VK_CHECK(vkAllocateMemory(ctx.m_device, &allocInfo, nullptr, &m_memory));
         vkBindImageMemory(ctx.m_device, m_image, m_memory, 0);
 
-        VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-        viewInfo.image = m_image;
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = format;
-        viewInfo.subresourceRange.aspectMask = aspect;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-
-        VK_CHECK(vkCreateImageView(ctx.m_device, &viewInfo, nullptr, &m_view));
     }
 
     void Texture::uploadData(const GpuContext& ctx, const void* data, uint32_t size)
@@ -385,11 +369,6 @@ namespace ToyEngine
 
     void Texture::destroy(const GpuContext& ctx)
     {
-        if (m_view)
-        {
-            vkDestroyImageView(ctx.m_device, m_view, nullptr);
-        }
-
         if (m_image)
         {
             vkDestroyImage(ctx.m_device, m_image, nullptr);
@@ -401,7 +380,6 @@ namespace ToyEngine
         }
 
         m_image = VK_NULL_HANDLE;
-        m_view = VK_NULL_HANDLE;
         m_memory = VK_NULL_HANDLE;
     }
 

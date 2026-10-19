@@ -65,12 +65,9 @@ mat4 expandTransform(TransformData transform)
 }
 
 
-// I think might moved this one out of common?
-// might be somethig added at the top of the shaders that needs it?
-layout(push_constant) uniform Constants
+layout(set = 1, binding = 0, scalar) uniform Constants
 {
     uint64_t vertexBufferAddress;
-    uint64_t cameraBufferAddress;
     uint64_t meshletBufferAddress;
     uint64_t meshletVertexBufferAddress;
     uint64_t meshletTriangleBufferAddress;
@@ -80,10 +77,10 @@ layout(push_constant) uniform Constants
     uint InstanceID;
 } push; // 128 max
 
-layout(buffer_reference, std430) readonly buffer CameraBufferPtr
+layout(set = 0, binding = 0, std140) uniform CameraBuffer
 {
     CameraData camera;
-};
+} cameraBuffer;
 
 layout(buffer_reference, std430) readonly buffer MeshletBufferPtr
 {

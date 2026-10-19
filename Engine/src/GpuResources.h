@@ -7,6 +7,14 @@
 namespace ToyEngine
 {
 
+    struct DescriptorHeapLocation
+    {
+        uint32_t m_offset = UINT32_MAX;
+        VkDescriptorType m_type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+
+        bool isValid() const { return m_offset != UINT32_MAX; }
+    };
+
     struct GpuContext
     {
         VkDevice m_device = VK_NULL_HANDLE;
@@ -29,6 +37,7 @@ namespace ToyEngine
         VkDeviceAddress m_gpuAddress = 0;
         void* m_data = nullptr;
         uint32_t m_size = 0;
+        DescriptorHeapLocation m_descriptorHeapLocation{};
 
         void* map(const GpuContext& ctx);
         void unmap(const GpuContext& ctx);
@@ -44,12 +53,14 @@ namespace ToyEngine
     struct Texture
     {
         VkImage m_image = VK_NULL_HANDLE;
-        VkImageView m_view = VK_NULL_HANDLE;
         VkDeviceMemory m_memory = VK_NULL_HANDLE;
 
         uint32_t m_width = 0;
         uint32_t m_height = 0;
         uint32_t m_bindlessIndex = 0;
+        DescriptorHeapLocation m_descriptorHeapLocation{};
+        VkFormat m_format = VK_FORMAT_UNDEFINED;
+        VkImageAspectFlags m_aspect = 0;
 
         void uploadData(const GpuContext& ctx, const void* data, uint32_t size);
 

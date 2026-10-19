@@ -2,135 +2,160 @@
 
 #include "Common/Common.h"
 
-#include <iostream>
 #include <cassert>
+#include <stdexcept>
+
+namespace
+{
+    VkDeviceSize alignUp(VkDeviceSize value, VkDeviceSize alignment)
+    {
+        return (value + alignment - 1) & ~(alignment - 1);
+    }
+}
 
 namespace ToyEngine
 {
 
-    void PipelineManager::init(VkDevice device)
+    void PipelineManager::init(const GpuContext& context, ResourceManager& resourceManager)
     {
-        m_device = device;
+        m_device = context.m_device;
+        m_physicalDevice = context.m_physicalDevice;
         assert(m_device != VK_NULL_HANDLE);
 
-        // Setup global descriptor set layout
-        VkDescriptorSetLayoutBinding bindings[2] = {};
+        VkPhysicalDeviceDescriptorHeapPropertiesEXT heapProperties{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT};
+        VkPhysicalDeviceProperties2 properties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+        properties.pNext = &heapProperties;
+        vkGetPhysicalDeviceProperties2(m_physicalDevice, &properties);
+        m_heapProperties = heapProperties;
 
-        bindings[0].binding = 0;
-        bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        bindings[0].descriptorCount = 1000;
-        bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        m_imageDescriptorSize = static_cast<uint32_t>(vkGetPhysicalDeviceDescriptorSizeEXT(
+            m_physicalDevice, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE));
+        m_bufferDescriptorSize = static_cast<uint32_t>(vkGetPhysicalDeviceDescriptorSizeEXT(
+            m_physicalDevice, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER));
+        m_samplerDescriptorSize = static_cast<uint32_t>(vkGetPhysicalDeviceDescriptorSizeEXT(
+            m_physicalDevice, VK_DESCRIPTOR_TYPE_SAMPLER));
+        m_imageDescriptorStride = static_cast<uint32_t>(alignUp(m_imageDescriptorSize,
+            m_heapProperties.imageDescriptorAlignment));
+        m_bufferDescriptorStride = static_cast<uint32_t>(alignUp(m_bufferDescriptorSize,
+            m_heapProperties.bufferDescriptorAlignment));
+        m_imageHeapOffset = static_cast<uint32_t>(alignUp(m_bufferDescriptorStride,
+            m_heapProperties.imageDescriptorAlignment));
+        m_samplerDescriptorStride = static_cast<uint32_t>(alignUp(m_samplerDescriptorSize,
+            m_heapProperties.samplerDescriptorAlignment));
 
-        bindings[1].binding = 1;
-        bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-        bindings[1].descriptorCount = 10;
-        bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        constexpr uint32_t MaxHeapTextures = 1000;
+        const VkDeviceSize resourceHeapBytes = alignUp(
+            VkDeviceSize(m_imageHeapOffset) + VkDeviceSize(MaxHeapTextures) * m_imageDescriptorStride +
+                m_heapProperties.minResourceHeapReservedRange,
+            m_heapProperties.resourceHeapAlignment);
 
-        VkDescriptorBindingFlags bindingFlags[2] = {
-            VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-            VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
-        };
+        const VkDeviceSize samplerHeapBytes = alignUp(
+            VkDeviceSize(m_samplerDescriptorStride) + m_heapProperties.minSamplerHeapReservedRange,
+            m_heapProperties.samplerHeapAlignment);
 
-        VkDescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{
-            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO
-        };
-        extendedInfo.bindingCount = 2;
-        extendedInfo.pBindingFlags = bindingFlags;
-
-        VkDescriptorSetLayoutCreateInfo layoutInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        layoutInfo.pNext = &extendedInfo;
-        layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
-        layoutInfo.bindingCount = 2;
-        layoutInfo.pBindings = bindings;
-
-        VK_CHECK(vkCreateDescriptorSetLayout(m_device, &layoutInfo, nullptr, &m_globalBindlessLayout));
-
-        setupGlobalDescriptorSet();
-    }
-
-    void PipelineManager::cleanup()
-    {
-        if (m_bindlessPool)
+        if (resourceHeapBytes > m_heapProperties.maxResourceHeapSize ||
+            samplerHeapBytes > m_heapProperties.maxSamplerHeapSize)
         {
-            vkDestroyDescriptorPool(m_device, m_bindlessPool, nullptr);
+            throw std::runtime_error("Configured descriptor heaps exceed device limits");
         }
 
-        if (m_globalBindlessLayout)
-        {
-            vkDestroyDescriptorSetLayout(m_device, m_globalBindlessLayout, nullptr);
-        }
+        constexpr VkMemoryPropertyFlags HeapMemory = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        const VkBufferUsageFlags heapUsage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+        m_resourceHeap = resourceManager.createBuffer(static_cast<uint32_t>(resourceHeapBytes), heapUsage, HeapMemory);
+        m_samplerHeap = resourceManager.createBuffer(static_cast<uint32_t>(samplerHeapBytes), heapUsage, HeapMemory);
+
+        // Adding default sampler
+        Buffer* samplerHeap = resourceManager.getBuffer(m_samplerHeap);
+
+        VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
+
+        m_defaultSamplerLocation = {0, VK_DESCRIPTOR_TYPE_SAMPLER};
+        VkHostAddressRangeEXT samplerDestination{
+            static_cast<uint8_t*>(samplerHeap->m_data) + m_defaultSamplerLocation.m_offset,
+            m_samplerDescriptorSize};
+
+        VK_CHECK(vkWriteSamplerDescriptorsEXT(m_device, 1, &samplerInfo, &samplerDestination));
     }
 
-    void PipelineManager::AddTextureToGlobalDescriptorSet(Texture& texture)
+    void PipelineManager::SetCameraBuffer(Buffer& cameraBuffer, ResourceManager& resourceManager)
     {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = texture.m_view;
-        imageInfo.sampler = nullptr;
+        cameraBuffer.m_descriptorHeapLocation = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER};
+        const VkDeviceAddressRangeEXT addressRange{cameraBuffer.m_gpuAddress, cameraBuffer.m_size};
+        VkResourceDescriptorInfoEXT resourceInfo{VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT};
+        resourceInfo.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        resourceInfo.data.pAddressRange = &addressRange;
 
-        uint32_t currentSlot = m_textureCount++;
-        texture.m_bindlessIndex = currentSlot;
-
-        VkWriteDescriptorSet descriptorWrite{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-        descriptorWrite.dstSet = m_globalBindlessDescriptorSet;
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = currentSlot;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pImageInfo = &imageInfo;
-
-        vkUpdateDescriptorSets(m_device, 1, &descriptorWrite, 0, nullptr);
-
-        // Default sampler
-        static VkSampler linearSampler = VK_NULL_HANDLE;
-
-        if (linearSampler == VK_NULL_HANDLE)
-        {
-            VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-            samplerInfo.magFilter = VK_FILTER_LINEAR;
-            samplerInfo.minFilter = VK_FILTER_LINEAR;
-            samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-            VK_CHECK(vkCreateSampler(m_device, &samplerInfo, nullptr, &linearSampler));
-
-            VkDescriptorImageInfo samplerInfoWrite{};
-            samplerInfoWrite.sampler = linearSampler;
-
-            VkWriteDescriptorSet samplerWrite{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-            samplerWrite.dstSet = m_globalBindlessDescriptorSet;
-            samplerWrite.dstBinding = 1;
-            samplerWrite.dstArrayElement = 0;
-            samplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-            samplerWrite.descriptorCount = 1;
-            samplerWrite.pImageInfo = &samplerInfoWrite;
-
-            vkUpdateDescriptorSets(m_device, 1, &samplerWrite, 0, nullptr);
-        }
+        Buffer* resourceHeap = resourceManager.getBuffer(m_resourceHeap);
+        VkHostAddressRangeEXT destination{
+            static_cast<uint8_t*>(resourceHeap->m_data) + cameraBuffer.m_descriptorHeapLocation.m_offset,
+            m_bufferDescriptorSize};
+        VK_CHECK(vkWriteResourceDescriptorsEXT(m_device, 1, &resourceInfo, &destination));
     }
 
-    void PipelineManager::setupGlobalDescriptorSet()
+    void PipelineManager::AddTextureToDescriptorHeap(Texture& texture, ResourceManager& resourceManager)
     {
-        VkDescriptorPoolSize poolSizes[2] = {
-            {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-            {VK_DESCRIPTOR_TYPE_SAMPLER, 10}
-        };
+        constexpr uint32_t MaxHeapTextures = 1000;
+        assert(m_textureCount < MaxHeapTextures);
+        const uint32_t descriptorIndex = m_textureCount++;
+        texture.m_bindlessIndex = descriptorIndex;
+        texture.m_descriptorHeapLocation = {
+            m_imageHeapOffset + descriptorIndex * m_imageDescriptorStride,
+            VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE};
 
-        VkDescriptorPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
-        poolInfo.maxSets = 1;
-        poolInfo.poolSizeCount = 2;
-        poolInfo.pPoolSizes = poolSizes;
+        VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        viewInfo.image = texture.m_image;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = texture.m_format;
+        viewInfo.subresourceRange.aspectMask = texture.m_aspect;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount = 1;
 
-        VK_CHECK(vkCreateDescriptorPool(m_device, &poolInfo, nullptr, &m_bindlessPool));
+        VkImageDescriptorInfoEXT imageInfo{VK_STRUCTURE_TYPE_IMAGE_DESCRIPTOR_INFO_EXT};
+        imageInfo.pView = &viewInfo;
+        imageInfo.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-        allocInfo.descriptorPool = m_bindlessPool;
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts = &m_globalBindlessLayout;
+        VkResourceDescriptorInfoEXT resourceInfo{VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT};
+        resourceInfo.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        resourceInfo.data.pImage = &imageInfo;
 
-        VK_CHECK(vkAllocateDescriptorSets(m_device, &allocInfo, &m_globalBindlessDescriptorSet));
+        Buffer* resourceHeap = resourceManager.getBuffer(m_resourceHeap);
+        uint8_t* descriptorBytes = static_cast<uint8_t*>(resourceHeap->m_data) +
+            texture.m_descriptorHeapLocation.m_offset;
+
+        VkHostAddressRangeEXT destination{descriptorBytes, m_imageDescriptorSize};
+        VK_CHECK(vkWriteResourceDescriptorsEXT(m_device, 1, &resourceInfo, &destination));
+    }
+
+    void PipelineManager::bindDescriptorHeaps(VkCommandBuffer commandBuffer,
+                                               ResourceManager& resourceManager) const
+    {
+        const Buffer* resourceHeap = resourceManager.getBuffer(m_resourceHeap);
+        const Buffer* samplerHeap = resourceManager.getBuffer(m_samplerHeap);
+
+        VkBindHeapInfoEXT resourceBinding{VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT};
+        resourceBinding.heapRange = {resourceHeap->m_gpuAddress, resourceHeap->m_size};
+        resourceBinding.reservedRangeOffset = resourceHeap->m_size - m_heapProperties.minResourceHeapReservedRange;
+        resourceBinding.reservedRangeSize = m_heapProperties.minResourceHeapReservedRange;
+        vkCmdBindResourceHeapEXT(commandBuffer, &resourceBinding);
+
+        VkBindHeapInfoEXT samplerBinding{VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT};
+        samplerBinding.heapRange = {samplerHeap->m_gpuAddress, samplerHeap->m_size};
+        samplerBinding.reservedRangeOffset = samplerHeap->m_size - m_heapProperties.minSamplerHeapReservedRange;
+        samplerBinding.reservedRangeSize = m_heapProperties.minSamplerHeapReservedRange;
+        vkCmdBindSamplerHeapEXT(commandBuffer, &samplerBinding);
     }
 
 }

@@ -9,8 +9,8 @@ layout(location = 0) in vec2 inUV;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec3 outMeshletDebugColor;
 
-layout(set = 0, binding = 0) uniform texture2D globalTextures[];
-layout(set = 0, binding = 1) uniform sampler globalSamplers[];
+layout(set = 2, binding = 0) uniform texture2D globalTextures[];
+layout(set = 2, binding = 1) uniform sampler globalSamplers[];
 
 
 layout(location = 0) out vec4 outColor;
@@ -27,6 +27,6 @@ void main()
 
     float lightIntensity = max(dot(normalize(inNormal), normalize(vec3(0.5, 1.0, 0.3))), 0.2);
 
-    //outColor = vec4(texColor.rgb * lightIntensity, texColor.a);
-    outColor = vec4(outMeshletDebugColor.rgb * lightIntensity, 1.0);
+    outColor = vec4(texColor.rgb * lightIntensity, texColor.a);
+    //outColor = vec4(outMeshletDebugColor.rgb * lightIntensity, 1.0);
 }

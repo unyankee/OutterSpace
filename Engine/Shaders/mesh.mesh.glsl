@@ -74,7 +74,7 @@ void main()
     SetMeshOutputsEXT(meshlet.vertexCount, meshlet.triangleCount);
 
     uint localIndex = gl_LocalInvocationIndex;
-    CameraData cam = CameraBufferPtr(push.cameraBufferAddress).camera;
+    CameraData cam = cameraBuffer.camera;
 
     for (uint i = localIndex; i < meshlet.vertexCount; i += gl_WorkGroupSize.x)
     {

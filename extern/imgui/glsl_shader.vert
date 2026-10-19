@@ -1,6 +1,7 @@
 #version 460 core
 #extension GL_EXT_buffer_reference : require
 #extension GL_ARB_gpu_shader_int64 : require
+#extension GL_EXT_scalar_block_layout : require
 
 struct ImguiVertexData
 {
@@ -16,10 +17,11 @@ layout(buffer_reference, std430) readonly buffer ImguiVertexDataPtr
     ImguiVertexData ImguiVertex[];
 };
 
-layout(push_constant) uniform uPushConstant {
+layout(set = 1, binding = 0, scalar) uniform uPushConstant {
     vec2 uScale;
     vec2 uTranslate;
     uint64_t vertexBufferAddress;
+    uint textureIndex;
 } pc;
 
 out gl_PerVertex {

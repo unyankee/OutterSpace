@@ -399,12 +399,7 @@ namespace ToyEngine
         }
     }
 
-    PipelineHandle ResourceManager::createPipeline(const PipelineConfig& config, VkDescriptorSetLayout descriptorLayout, const std::vector<VkPushConstantRange>& pushConstantRanges)
-    {
-        return createPipeline(config, std::vector<VkDescriptorSetLayout>{descriptorLayout}, pushConstantRanges);
-    }
-
-    PipelineHandle ResourceManager::createPipeline(const PipelineConfig& config, const std::vector<VkDescriptorSetLayout>& descriptorLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges)
+    PipelineHandle ResourceManager::createPipeline(const PipelineConfig& config)
     {
         uint32_t index = 0;
         if (!m_freePipelines.empty())
@@ -420,7 +415,7 @@ namespace ToyEngine
 
         auto& slot = m_pipelines[index];
         slot.resource = Pipeline(config);
-        slot.resource.create(*m_ctx, descriptorLayouts, pushConstantRanges);
+        slot.resource.create(*m_ctx);
         slot.alive = true;
 
         return {index, slot.generation};

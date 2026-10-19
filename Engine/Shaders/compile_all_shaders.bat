@@ -10,6 +10,19 @@ for /r %%f in (*.glsl) do (
     call :process_file "%%f"
 )
 echo.
+set "REPO_ROOT=%~dp0..\.."
+"%COMPILER%" -V --target-env vulkan1.4 "%REPO_ROOT%\extern\imgui\glsl_shader.vert" -o "%REPO_ROOT%\extern\imgui\glsl_shader.vert.spv"
+if errorlevel 1 (
+    echo [FAILURE] ImGui vertex shader compilation failed.
+    exit /b 1
+)
+"%COMPILER%" -V --target-env vulkan1.4 "%REPO_ROOT%\extern\imgui\glsl_shader.frag" -o "%REPO_ROOT%\extern\imgui\glsl_shader.frag.spv"
+if errorlevel 1 (
+    echo [FAILURE] ImGui fragment shader compilation failed.
+    exit /b 1
+)
+echo [SUCCESS] ImGui shaders compiled.
+echo.
 echo Full scan finished.
 goto :eof
 
